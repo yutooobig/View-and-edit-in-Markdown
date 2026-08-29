@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Markdown 管理系统</title>
+    <title>Markdown 笔记 v1.1</title>
 
     <!-- CodeMirror 5 CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
@@ -841,6 +841,50 @@
                 opacity: 0.4;
             }
         }
+
+
+        /* 侧边栏收起动画 */
+        .sidebar {
+            transition: width 0.25s ease, min-width 0.25s ease, max-width 0.25s ease;
+            overflow: hidden;
+        }
+        .sidebar.collapsed {
+            width: 0 !important;
+            min-width: 0 !important;
+            max-width: 0 !important;
+            border-right: none;
+        }
+
+        /* 工具栏按钮紧凑排列 */
+        .toolbar .btn {
+            margin: 2px 0;
+        }
+
+        /* 窄屏适配优化 */
+        @media (max-width: 768px) {
+            .editor-pane {
+                min-height: 200px;
+            }
+            .preview-pane {
+                min-height: 200px;
+            }
+            .toolbar {
+                padding: 4px;
+            }
+            .btn .btn-text {
+                display: none;
+            }
+        }
+
+        /* 多选高亮 */
+        .tree-node .node-row.selected {
+            background: var(--accent-light);
+            outline: 1px solid var(--accent);
+        }
+        .tree-node .node-row.selected.active {
+            background: var(--accent);
+            color: #fff;
+        }
     </style>
 </head>
 <body>
@@ -867,9 +911,15 @@
         <button class="btn sm" id="btnNewGroup" title="新建分组">📁 分组</button>
         <button class="btn sm" id="btnUpload" title="上传 Markdown 文件">⬆️ 上传</button>
         <div class="sep"></div>
+        <button class="btn sm" id="btnUndo" title="撤销 (Ctrl+Z)">↩️ 撤销</button>
+        <button class="btn sm" id="btnRedo" title="重做 (Ctrl+Y)">↪️ 重做</button>
+        <div class="sep"></div>
         <button class="btn sm" id="btnSave" title="保存 (Ctrl+S)">💾 保存</button>
         <button class="btn sm" id="btnRename" title="重命名">✏️ 重命名</button>
         <button class="btn sm danger" id="btnDelete" title="删除">🗑️ 删除</button>
+        <div class="sep"></div>
+        <button class="btn sm" id="btnExportSelected" title="导出选中的文件">📤 导出选中</button>
+        <button class="btn sm" id="btnExportAll" title="打包全部文件为 ZIP">📦 全部导出</button>
         <div class="sep"></div>
         <button class="btn sm" id="btnGitPull" title="从远程仓库拉取">⬇️ Pull</button>
         <button class="btn sm success" id="btnGitPush" title="推送到远程仓库">⬆️ Push</button>
@@ -877,8 +927,8 @@
         <div class="sep"></div>
         <input type="text" class="search-input" id="searchInput" placeholder="🔍 搜索文件...">
         <div style="flex:1;"></div>
+        <button class="btn sm" id="btnToggleSidebar" title="收起/展开侧边栏">📚 侧栏</button>
         <button class="btn sm" id="btnTheme" title="切换主题">🌓 主题</button>
-        <button class="btn sm" id="btnExport" title="导出当前文件">📥 导出</button>
     </div>
 
     <!-- 主内容区域 -->
@@ -933,42 +983,24 @@
     <input type="file" id="fileUploadInput" accept=".md,.markdown,.txt" multiple style="display:none;">
 
     <!-- 引入脚本 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js">
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/markdown/markdown.min.js">
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js">
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js">
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js">
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js">
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js">
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/javascript.min.js">
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js">
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js">
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js">
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/xml.min.js">
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/css.min.js">
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js">
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js">
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/go.min.js">
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/rust.min.js">
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js">
-    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/markdown/markdown.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/go.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/rust.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
 
     <script>
         (function() {
@@ -978,7 +1010,7 @@
             const state = {
                 files: {}, // { path: { name, group, content, createdAt, updatedAt } }
                 groups: new Set(['默认']),
-                currentFile: null, // 当前文件路径
+                currentFile: null,
                 currentGroup: '默认',
                 editor: null,
                 md: null,
@@ -988,11 +1020,13 @@
                 gitFs: null,
                 gitModule: null,
                 fsReady: false,
-                viewMode: 'split', // 'edit' | 'preview' | 'split'
+                viewMode: 'split',
                 searchQuery: '',
                 collapsedGroups: new Set(),
                 isDirty: false,
                 lastSavedContent: '',
+                selectedPaths: new Set(), // 多选文件路径
+                sidebarCollapsed: localStorage.getItem('md-sidebar-collapsed') === 'true', // 侧边栏状态
             };
 
             // ==================== Toast 通知 ====================
@@ -1021,12 +1055,11 @@
                         if (lang && state.hljs && state.hljs.getLanguage(lang)) {
                             try {
                                 return `<pre class="hljs"><code>${state.hljs.highlight(str, { language: lang, ignoreIllegals: true }).value}</code></pre>`;
-                            } catch (e) { /* ignore */ }
+                            } catch (e) {}
                         }
                         return `<pre class="hljs"><code>${state.md.utils.escapeHtml(str)}</code></pre>`;
                     }
                 });
-                // 自定义代码块渲染以添加复制按钮
                 const defaultFence = state.md.renderer.rules.fence;
                 state.md.renderer.rules.fence = function(tokens, idx, options, env, self) {
                     const token = tokens[idx];
@@ -1063,6 +1096,10 @@
                         'Cmd-B': function() { toggleBold(); },
                         'Ctrl-I': function() { toggleItalic(); },
                         'Cmd-I': function() { toggleItalic(); },
+                        'Ctrl-Z': function() { state.editor.undo(); },
+                        'Cmd-Z': function() { state.editor.undo(); },
+                        'Ctrl-Y': function() { state.editor.redo(); },
+                        'Cmd-Y': function() { state.editor.redo(); },
                     }
                 });
                 state.editor.on('change', function() {
@@ -1073,22 +1110,17 @@
                 return state.editor;
             }
 
-            // ==================== 防抖预览 ====================
             let previewTimeout = null;
             function debouncedPreview() {
                 clearTimeout(previewTimeout);
-                previewTimeout = setTimeout(() => {
-                    updatePreview();
-                }, 300);
+                previewTimeout = setTimeout(() => updatePreview(), 300);
             }
 
-            // ==================== 更新预览 ====================
             function updatePreview() {
                 const content = state.editor ? state.editor.getValue() : '';
                 const previewEl = document.getElementById('previewContent');
                 if (state.md && previewEl) {
                     previewEl.innerHTML = state.md.render(content);
-                    // 绑定复制按钮事件
                     previewEl.querySelectorAll('.copy-btn').forEach(btn => {
                         btn.addEventListener('click', function(e) {
                             e.preventDefault();
@@ -1117,7 +1149,6 @@
                     await navigator.clipboard.writeText(text);
                     showToast('已复制到剪贴板', 'success');
                 } catch (e) {
-                    // Fallback
                     const textarea = document.createElement('textarea');
                     textarea.value = text;
                     textarea.style.position = 'fixed';
@@ -1130,13 +1161,12 @@
                 }
             }
 
-            // ==================== 文件树渲染 ====================
+            // ==================== 文件树渲染（支持多选） ====================
             function renderFileTree() {
                 const treeEl = document.getElementById('fileTree');
                 treeEl.innerHTML = '';
 
-                if (Object.keys(state.files).length === 0 && state.groups.size === 1 &&
-                    state.groups.has('默认')) {
+                if (Object.keys(state.files).length === 0 && state.groups.size === 1 && state.groups.has('默认')) {
                     treeEl.innerHTML = `
                         <div class="empty-state">
                             <div class="icon">📂</div>
@@ -1159,8 +1189,7 @@
 
                     const isCollapsed = state.collapsedGroups.has(group);
                     const nodeRow = document.createElement('div');
-                    nodeRow.className = 'node-row' + (state.currentGroup === group && !state.currentFile ?
-                        ' active' : '');
+                    nodeRow.className = 'node-row' + (state.currentGroup === group && !state.currentFile ? ' active' : '');
                     nodeRow.innerHTML = `
                         <span class="toggle-arrow ${isCollapsed ? '' : 'expanded'}">▶</span>
                         <span class="node-icon">📁</span>
@@ -1179,9 +1208,7 @@
                         setEditorContent('');
                         updateStatusBar();
                     });
-                    nodeRow.addEventListener('dblclick', () => {
-                        showNewFileModal(group);
-                    });
+                    nodeRow.addEventListener('dblclick', () => showNewFileModal(group));
                     groupNode.appendChild(nodeRow);
 
                     if (!isCollapsed && groupFiles.length > 0) {
@@ -1191,8 +1218,9 @@
                             const fileNode = document.createElement('div');
                             fileNode.className = 'tree-node';
                             const fileRow = document.createElement('div');
-                            fileRow.className = 'node-row' + (state.currentFile === path ? ' active' :
-                                '');
+                            const isSelected = state.selectedPaths.has(path);
+                            const isActive = state.currentFile === path;
+                            fileRow.className = 'node-row' + (isActive ? ' active' : '') + (isSelected ? ' selected' : '');
                             fileRow.innerHTML = `
                                 <span class="toggle-arrow leaf">▶</span>
                                 <span class="node-icon">📄</span>
@@ -1200,7 +1228,20 @@
                             `;
                             fileRow.addEventListener('click', (e) => {
                                 e.stopPropagation();
-                                openFile(path);
+                                if (e.ctrlKey || e.metaKey) {
+                                    // 多选切换
+                                    if (state.selectedPaths.has(path)) {
+                                        state.selectedPaths.delete(path);
+                                    } else {
+                                        state.selectedPaths.add(path);
+                                    }
+                                    renderFileTree();
+                                } else {
+                                    // 单选：清除其他选中，只保留当前
+                                    state.selectedPaths.clear();
+                                    state.selectedPaths.add(path);
+                                    openFile(path);
+                                }
                             });
                             fileRow.addEventListener('dblclick', (e) => {
                                 e.stopPropagation();
@@ -1232,6 +1273,10 @@
                 state.lastSavedContent = file.content;
                 setEditorContent(file.content);
                 state.isDirty = false;
+                if (!state.selectedPaths.has(path)) {
+                    state.selectedPaths.clear();
+                    state.selectedPaths.add(path);
+                }
                 renderFileTree();
                 updateStatusBar();
                 showToast(`已打开: ${file.name}`, 'info');
@@ -1258,7 +1303,6 @@
                 state.isDirty = false;
                 updateStatusBar();
                 showToast(`已保存: ${file.name}`, 'success');
-                // 同步到 Git 文件系统
                 syncToGitFs(state.currentFile, content);
             }
 
@@ -1284,6 +1328,8 @@
                 state.lastSavedContent = state.files[path].content;
                 setEditorContent(state.files[path].content);
                 state.isDirty = false;
+                state.selectedPaths.clear();
+                state.selectedPaths.add(path);
                 renderFileTree();
                 updateStatusBar();
                 showToast(`已创建: ${cleanName}`, 'success');
@@ -1300,6 +1346,7 @@
                     state.currentFile = null;
                     setEditorContent('');
                 }
+                state.selectedPaths.delete(path);
                 removeFromGitFs(path);
                 renderFileTree();
                 updateStatusBar();
@@ -1316,15 +1363,17 @@
                     showToast('同名文件已存在', 'error');
                     return;
                 }
-                // 从 Git FS 删除旧文件
                 removeFromGitFs(path);
-                // 更新
                 file.name = cleanName;
                 file.updatedAt = new Date().toISOString();
                 state.files[newPath] = file;
                 delete state.files[path];
                 if (state.currentFile === path) {
                     state.currentFile = newPath;
+                }
+                if (state.selectedPaths.has(path)) {
+                    state.selectedPaths.delete(path);
+                    state.selectedPaths.add(newPath);
                 }
                 syncToGitFs(newPath, file.content);
                 renderFileTree();
@@ -1351,6 +1400,10 @@
                 if (state.currentFile === path) {
                     state.currentFile = newPath;
                     state.currentGroup = newGroup;
+                }
+                if (state.selectedPaths.has(path)) {
+                    state.selectedPaths.delete(path);
+                    state.selectedPaths.add(newPath);
                 }
                 syncToGitFs(newPath, file.content);
                 renderFileTree();
@@ -1393,6 +1446,10 @@
                         if (state.currentFile === path) {
                             state.currentFile = finalPath;
                             state.currentGroup = '默认';
+                        }
+                        if (state.selectedPaths.has(path)) {
+                            state.selectedPaths.delete(path);
+                            state.selectedPaths.add(finalPath);
                         }
                         syncToGitFs(finalPath, file.content);
                         removeFromGitFs(path);
@@ -1564,20 +1621,21 @@
             // ==================== Git 文件系统 ====================
             async function initGitFs() {
                 try {
-                    const { default: LightningFS } = await import(
-                        'https://esm.sh/@isomorphic-git/lightning-fs@1.3.0');
+                    const { default: LightningFS } = await import('https://esm.sh/@isomorphic-git/lightning-fs@1.3.0');
                     state.gitFs = new LightningFS('markdown-fs', { wipe: false });
                     state.gitModule = await import('https://esm.sh/isomorphic-git@1.25.10');
                     state.fsReady = true;
-                    // 确保目录存在
                     try {
                         await state.gitFs.promises.mkdir('/repo', { recursive: true });
-                    } catch (e) { /* exists */ }
+                    } catch (e) {}
                     updateStatusBar();
+                    showToast('Git 文件系统已就绪', 'success');
                     return true;
                 } catch (e) {
                     console.error('Git FS 初始化失败:', e);
-                    showToast('Git 文件系统初始化失败，但本地编辑功能可用', 'error');
+                    state.fsReady = false;
+                    updateStatusBar();
+                    showToast('Git 文件系统初始化失败，请检查网络后刷新重试', 'error');
                     return false;
                 }
             }
@@ -1614,15 +1672,15 @@
             }
 
             async function gitPull() {
-                if (!state.fsReady || !state.gitModule || !state.gitConfig) {
-                    showToast('请先配置 Git 仓库', 'error');
+                if (!state.fsReady || !state.gitModule) {
+                    showToast('Git 文件系统未就绪，请检查网络或刷新页面重试', 'error');
+                    return;
+                }
+                if (!state.gitConfig || !state.gitConfig.url) {
+                    showToast('请先在 Git 配置中填写远程仓库 URL', 'error');
                     return;
                 }
                 const config = state.gitConfig;
-                if (!config.url) {
-                    showToast('请先配置远程仓库 URL', 'error');
-                    return;
-                }
                 showToast('正在拉取远程仓库...', 'info');
                 try {
                     await syncAllToGitFs();
@@ -1632,14 +1690,9 @@
                         dir: '/repo',
                         ref: config.branch || 'main',
                         singleBranch: true,
-                        author: {
-                            name: config.username || 'user',
-                            email: (config.username || 'user') + '@users.noreply.github.com'
-                        },
+                        author: { name: config.username || 'user', email: (config.username || 'user') + '@users.noreply.github.com' },
                     });
-                    showToast(`拉取成功！${result.files && result.files.length ? '更新了 ' + result.files.length + ' 个文件' : '已是最新'}`,
-                        'success');
-                    // 从 Git FS 重新加载文件
+                    showToast(`拉取成功！${result.files && result.files.length ? '更新了 ' + result.files.length + ' 个文件' : '已是最新'}`, 'success');
                     await reloadFromGitFs();
                 } catch (e) {
                     console.error('Pull 失败:', e);
@@ -1648,16 +1701,15 @@
             }
 
             async function gitPush() {
-                if (!state.fsReady || !state.gitModule || !state.gitConfig) {
-                    showToast('请先配置 Git 仓库', 'error');
+                if (!state.fsReady || !state.gitModule) {
+                    showToast('Git 文件系统未就绪，请检查网络或刷新页面重试', 'error');
+                    return;
+                }
+                if (!state.gitConfig || !state.gitConfig.url) {
+                    showToast('请先在 Git 配置中填写远程仓库 URL', 'error');
                     return;
                 }
                 const config = state.gitConfig;
-                if (!config.url) {
-                    showToast('请先配置远程仓库 URL', 'error');
-                    return;
-                }
-                // 先保存当前文件
                 if (state.currentFile && state.isDirty) {
                     saveCurrentFile();
                 }
@@ -1665,22 +1717,17 @@
                 showToast('正在提交并推送...', 'info');
                 try {
                     const git = state.gitModule;
-                    // 确保仓库已初始化
                     try {
                         await git.getConfig({ fs: state.gitFs, dir: '/repo', path: 'user.name' });
                     } catch (e) {
                         await git.init({ fs: state.gitFs, dir: '/repo', defaultBranch: config.branch || 'main' });
-                        await git.setConfig({ fs: state.gitFs, dir: '/repo', path: 'user.name', value: config
-                                .username || 'markdown-user' });
-                        await git.setConfig({ fs: state.gitFs, dir: '/repo', path: 'user.email',
-                            value: (config.username || 'markdown-user') + '@users.noreply.github.com' });
+                        await git.setConfig({ fs: state.gitFs, dir: '/repo', path: 'user.name', value: config.username || 'markdown-user' });
+                        await git.setConfig({ fs: state.gitFs, dir: '/repo', path: 'user.email', value: (config.username || 'markdown-user') + '@users.noreply.github.com' });
                     }
-                    // 检查远程
                     try {
                         const remotes = await git.listRemotes({ fs: state.gitFs, dir: '/repo' });
                         if (!remotes.some(r => r.url === config.url)) {
-                            await git.addRemote({ fs: state.gitFs, dir: '/repo', remote: 'origin', url: config
-                                    .url });
+                            await git.addRemote({ fs: state.gitFs, dir: '/repo', remote: 'origin', url: config.url });
                         }
                     } catch (e) {
                         await git.addRemote({ fs: state.gitFs, dir: '/repo', remote: 'origin', url: config.url });
@@ -1695,26 +1742,20 @@
                             if (stat.isDirectory()) {
                                 const subFiles = await getAllFiles(filePath);
                                 for (const sf of subFiles) {
-                                    await git.add({ fs: state.gitFs, dir: '/repo', filepath: sf.replace('/repo/',
-                                            '') });
+                                    await git.add({ fs: state.gitFs, dir: '/repo', filepath: sf.replace('/repo/', '') });
                                 }
                             } else {
                                 await git.add({ fs: state.gitFs, dir: '/repo', filepath: file });
                             }
-                        } catch (e) { /* skip */ }
+                        } catch (e) {}
                     }
-                    // Commit
                     const commitMessage = 'Update Markdown files - ' + new Date().toLocaleString();
                     try {
                         await git.commit({
                             fs: state.gitFs,
                             dir: '/repo',
                             message: commitMessage,
-                            author: {
-                                name: config.username || 'markdown-user',
-                                email: (config.username || 'markdown-user') +
-                                    '@users.noreply.github.com',
-                            },
+                            author: { name: config.username || 'markdown-user', email: (config.username || 'markdown-user') + '@users.noreply.github.com' },
                         });
                     } catch (e) {
                         if (e.message && e.message.includes('No changes')) {
@@ -1723,17 +1764,13 @@
                             throw e;
                         }
                     }
-                    // Push
                     await git.push({
                         fs: state.gitFs,
                         http: createHttpClient(config),
                         dir: '/repo',
                         remote: 'origin',
                         ref: config.branch || 'main',
-                        onAuth: () => ({
-                            username: config.username,
-                            password: config.token,
-                        }),
+                        onAuth: () => ({ username: config.username, password: config.token }),
                         force: false,
                     });
                     showToast('推送成功！', 'success');
@@ -1753,12 +1790,7 @@
                         if (!req.url) req.url = config.url;
                         const res = await fetch(req.url, {
                             method: req.method || 'GET',
-                            headers: {
-                                ...req.headers,
-                                ...headers,
-                                'Accept': 'application/vnd.github+json',
-                                'X-Git-Agent': 'markdown-manager',
-                            },
+                            headers: { ...req.headers, ...headers, 'Accept': 'application/vnd.github+json', 'X-Git-Agent': 'markdown-manager' },
                             body: req.body,
                         });
                         return res;
@@ -1811,7 +1843,6 @@
                             }
                         }
                     }
-                    // 合并：远程文件优先，但保留本地未推送的文件
                     for (const [path, file] of Object.entries(newFiles)) {
                         if (!state.files[path] || state.files[path].content !== file.content) {
                             state.files[path] = file;
@@ -1829,89 +1860,79 @@
                 }
             }
 
-            // ==================== 上传功能 ====================
-            function handleUpload(files) {
-                const group = state.currentGroup || '默认';
-                let count = 0;
-                Array.from(files).forEach(file => {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const content = e.target.result;
-                        const name = file.name || 'uploaded.md';
-                        const cleanName = name.endsWith('.md') || name.endsWith('.markdown') || name.endsWith(
-                            '.txt') ? name : name + '.md';
-                        const path = `${group}/${cleanName}`;
-                        let finalPath = path;
-                        let counter = 1;
-                        while (state.files[finalPath]) {
-                            const ext = cleanName.includes('.') ? '.' + cleanName.split('.').pop() : '';
-                            const base = cleanName.replace(/\.[^.]+$/, '');
-                            finalPath = `${group}/${base}_${counter}${ext}`;
-                            counter++;
-                        }
-                        if (!state.groups.has(group)) {
-                            state.groups.add(group);
-                        }
-                        state.files[finalPath] = {
-                            name: finalPath.split('/').pop(),
-                            group: group,
-                            content: content,
-                            createdAt: new Date().toISOString(),
-                            updatedAt: new Date().toISOString(),
-                        };
-                        syncToGitFs(finalPath, content);
-                        count++;
-                        if (count === Array.from(files).length) {
-                            renderFileTree();
-                            updateStatusBar();
-                            showToast(`成功上传 ${count} 个文件`, 'success');
-                            // 打开第一个文件
-                            const firstPath = Object.keys(state.files).find(p => state.files[p].group ===
-                                group);
-                            if (firstPath) openFile(firstPath);
-                        }
-                    };
-                    reader.readAsText(file);
-                });
-            }
-
             // ==================== 导出功能 ====================
-            function exportCurrentFile() {
-                if (!state.currentFile || !state.files[state.currentFile]) {
-                    showToast('请先选择文件', 'error');
+            function exportSelectedFiles() {
+                const selectedPaths = Array.from(state.selectedPaths);
+                if (selectedPaths.length === 0) {
+                    showToast('请先选择文件（点击文件或 Ctrl+点击多选）', 'error');
                     return;
                 }
-                const file = state.files[state.currentFile];
-                const blob = new Blob([file.content], { type: 'text/markdown' });
+                if (selectedPaths.length === 1) {
+                    // 单个文件导出
+                    const path = selectedPaths[0];
+                    const file = state.files[path];
+                    if (!file) return;
+                    const blob = new Blob([file.content], { type: 'text/markdown' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = file.name;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    showToast(`已导出: ${file.name}`, 'success');
+                } else {
+                    // 多个文件打包导出
+                    exportFilesAsZip(selectedPaths);
+                }
+            }
+
+            function exportAllFiles() {
+                const allPaths = Object.keys(state.files);
+                if (allPaths.length === 0) {
+                    showToast('没有文件可导出', 'error');
+                    return;
+                }
+                exportFilesAsZip(allPaths);
+            }
+
+            async function exportFilesAsZip(paths) {
+                const zip = new JSZip();
+                for (const path of paths) {
+                    const file = state.files[path];
+                    if (!file) continue;
+                    // 按分组路径组织
+                    const folder = zip.folder(file.group);
+                    if (folder) {
+                        folder.file(file.name, file.content);
+                    }
+                }
+                const blob = await zip.generateAsync({ type: 'blob' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = file.name;
+                a.download = `markdown-export-${new Date().toISOString().slice(0,10)}.zip`;
                 a.click();
                 URL.revokeObjectURL(url);
-                showToast('已导出', 'success');
+                showToast(`已打包导出 ${paths.length} 个文件`, 'success');
             }
 
-            // ==================== 主题切换 ====================
-            function toggleTheme() {
-                state.theme = state.theme === 'light' ? 'dark' : 'light';
-                localStorage.setItem('md-theme', state.theme);
-                applyTheme();
+            // ==================== 侧边栏收起/展开 ====================
+            function toggleSidebar() {
+                state.sidebarCollapsed = !state.sidebarCollapsed;
+                localStorage.setItem('md-sidebar-collapsed', state.sidebarCollapsed);
+                applySidebarState();
             }
 
-            function applyTheme() {
-                document.documentElement.setAttribute('data-theme', state.theme);
-                if (state.editor) {
-                    state.editor.setOption('theme', state.theme === 'dark' ? 'material-darker' : 'one-light');
-                }
-                const hljsDark = document.getElementById('hljs-dark');
-                const hljsLight = document.getElementById('hljs-light');
-                if (state.theme === 'dark') {
-                    hljsDark.disabled = false;
-                    hljsLight.disabled = true;
+            function applySidebarState() {
+                const sidebar = document.getElementById('sidebar');
+                if (state.sidebarCollapsed) {
+                    sidebar.classList.add('collapsed');
                 } else {
-                    hljsDark.disabled = true;
-                    hljsLight.disabled = false;
+                    sidebar.classList.remove('collapsed');
+                }
+                // 刷新编辑器尺寸
+                if (state.editor) {
+                    setTimeout(() => state.editor.refresh(), 300);
                 }
             }
 
@@ -1928,7 +1949,9 @@
                 }
                 const content = state.editor ? state.editor.getValue() : '';
                 charsEl.textContent = `${content.length} 字符`;
-                if (state.gitConfig && state.gitConfig.url) {
+                if (!state.fsReady) {
+                    gitEl.textContent = 'Git: 文件系统未就绪';
+                } else if (state.gitConfig && state.gitConfig.url) {
                     gitEl.textContent = `Git: ${state.gitConfig.url.split('/').pop()}`;
                 } else {
                     gitEl.textContent = 'Git: 未配置';
@@ -2006,7 +2029,6 @@
                         file.content.toLowerCase().includes(state.searchQuery) ||
                         file.group.toLowerCase().includes(state.searchQuery);
                 });
-                // 高亮显示搜索结果
                 renderFileTreeWithSearch(results.map(([path]) => path));
             }
 
@@ -2014,15 +2036,9 @@
                 const treeEl = document.getElementById('fileTree');
                 treeEl.innerHTML = '';
                 if (matchedPaths.length === 0) {
-                    treeEl.innerHTML = `
-                        <div class="empty-state">
-                            <div class="icon">🔍</div>
-                            <div class="text">无搜索结果</div>
-                            <div class="sub">尝试其他关键词</div>
-                        </div>`;
+                    treeEl.innerHTML = `<div class="empty-state"><div class="icon">🔍</div><div class="text">无搜索结果</div></div>`;
                     return;
                 }
-                const matchedSet = new Set(matchedPaths);
                 const groups = new Set(matchedPaths.map(p => state.files[p]?.group).filter(Boolean));
                 groups.forEach(group => {
                     const groupFiles = matchedPaths.filter(p => state.files[p]?.group === group);
@@ -2030,12 +2046,7 @@
                     groupNode.className = 'tree-node';
                     const nodeRow = document.createElement('div');
                     nodeRow.className = 'node-row';
-                    nodeRow.innerHTML = `
-                        <span class="toggle-arrow expanded">▶</span>
-                        <span class="node-icon">📁</span>
-                        <span class="node-name">${escapeHtml(group)}</span>
-                        <span class="node-badge">${groupFiles.length}</span>
-                    `;
+                    nodeRow.innerHTML = `<span class="toggle-arrow expanded">▶</span><span class="node-icon">📁</span><span class="node-name">${escapeHtml(group)}</span><span class="node-badge">${groupFiles.length}</span>`;
                     groupNode.appendChild(nodeRow);
                     const childrenDiv = document.createElement('div');
                     childrenDiv.className = 'node-children';
@@ -2044,13 +2055,24 @@
                         const fileNode = document.createElement('div');
                         fileNode.className = 'tree-node';
                         const fileRow = document.createElement('div');
-                        fileRow.className = 'node-row' + (state.currentFile === path ? ' active' : '');
-                        fileRow.innerHTML = `
-                            <span class="toggle-arrow leaf">▶</span>
-                            <span class="node-icon">📄</span>
-                            <span class="node-name">${escapeHtml(file.name)}</span>
-                        `;
-                        fileRow.addEventListener('click', () => openFile(path));
+                        const isSelected = state.selectedPaths.has(path);
+                        const isActive = state.currentFile === path;
+                        fileRow.className = 'node-row' + (isActive ? ' active' : '') + (isSelected ? ' selected' : '');
+                        fileRow.innerHTML = `<span class="toggle-arrow leaf">▶</span><span class="node-icon">📄</span><span class="node-name">${escapeHtml(file.name)}</span>`;
+                        fileRow.addEventListener('click', (e) => {
+                            if (e.ctrlKey || e.metaKey) {
+                                if (state.selectedPaths.has(path)) {
+                                    state.selectedPaths.delete(path);
+                                } else {
+                                    state.selectedPaths.add(path);
+                                }
+                                renderFileTree();
+                            } else {
+                                state.selectedPaths.clear();
+                                state.selectedPaths.add(path);
+                                openFile(path);
+                            }
+                        });
                         fileNode.appendChild(fileRow);
                         childrenDiv.appendChild(fileNode);
                     });
@@ -2061,19 +2083,14 @@
 
             // ==================== 初始化 ====================
             async function init() {
-                // 初始化 highlight.js
                 state.hljs = window.hljs;
-                // 初始化 markdown-it
                 initMarkdown();
-                // 初始化编辑器
                 initEditor();
-                // 应用主题
                 applyTheme();
-                // 初始化视图模式
                 setViewMode('split');
-                // 初始化 Git FS
+                applySidebarState(); // 应用侧边栏初始状态
                 await initGitFs();
-                // 从 localStorage 恢复文件
+
                 const savedFiles = localStorage.getItem('md-files');
                 if (savedFiles) {
                     try {
@@ -2083,39 +2100,34 @@
                                 state.groups.add(f.group);
                             }
                         });
-                    } catch (e) { /* ignore */ }
+                    } catch (e) {}
                 }
                 const savedGroups = localStorage.getItem('md-groups');
                 if (savedGroups) {
                     try {
                         const groups = JSON.parse(savedGroups);
                         groups.forEach(g => state.groups.add(g));
-                    } catch (e) { /* ignore */ }
+                    } catch (e) {}
                 }
-                // 确保默认分组存在
-                if (!state.groups.has('默认')) {
-                    state.groups.add('默认');
-                }
-                // 渲染文件树
+                if (!state.groups.has('默认')) state.groups.add('默认');
+
                 renderFileTree();
                 updateStatusBar();
-                // 自动保存
+
                 setInterval(() => {
                     localStorage.setItem('md-files', JSON.stringify(state.files));
                     localStorage.setItem('md-groups', JSON.stringify(Array.from(state.groups)));
                 }, 5000);
-                // 绑定事件
+
                 bindEvents();
-                showToast('欢迎使用 Markdown 管理系统！', 'info');
+                showToast('欢迎使用 Markdown 管理系统（增强版）！', 'info');
             }
 
             function bindEvents() {
-                // 工具栏按钮
+                // 原有按钮
                 document.getElementById('btnNewFile').addEventListener('click', () => showNewFileModal());
                 document.getElementById('btnNewGroup').addEventListener('click', () => showNewGroupModal());
-                document.getElementById('btnUpload').addEventListener('click', () => {
-                    document.getElementById('fileUploadInput').click();
-                });
+                document.getElementById('btnUpload').addEventListener('click', () => document.getElementById('fileUploadInput').click());
                 document.getElementById('btnSave').addEventListener('click', saveCurrentFile);
                 document.getElementById('btnRename').addEventListener('click', () => {
                     if (state.currentFile) showRenameModal(state.currentFile);
@@ -2129,11 +2141,21 @@
                 document.getElementById('btnGitPush').addEventListener('click', gitPush);
                 document.getElementById('btnGitConfig').addEventListener('click', showGitConfigModal);
                 document.getElementById('btnTheme').addEventListener('click', toggleTheme);
-                document.getElementById('btnExport').addEventListener('click', exportCurrentFile);
                 document.getElementById('btnCollapseAll').addEventListener('click', () => {
                     state.collapsedGroups = new Set(Array.from(state.groups));
                     renderFileTree();
                 });
+
+                // 新增按钮
+                document.getElementById('btnUndo').addEventListener('click', () => {
+                    if (state.editor) state.editor.undo();
+                });
+                document.getElementById('btnRedo').addEventListener('click', () => {
+                    if (state.editor) state.editor.redo();
+                });
+                document.getElementById('btnExportSelected').addEventListener('click', exportSelectedFiles);
+                document.getElementById('btnExportAll').addEventListener('click', exportAllFiles);
+                document.getElementById('btnToggleSidebar').addEventListener('click', toggleSidebar);
 
                 // 文件上传
                 document.getElementById('fileUploadInput').addEventListener('change', (e) => {
@@ -2146,56 +2168,30 @@
                     handleSearch(e.target.value);
                 });
 
-                // 编辑器标签切换
+                // 编辑器标签
                 document.querySelectorAll('.editor-tab').forEach(tab => {
-                    tab.addEventListener('click', () => {
-                        setViewMode(tab.dataset.mode);
-                    });
+                    tab.addEventListener('click', () => setViewMode(tab.dataset.mode));
                 });
 
                 // 拖放上传
                 const dropZone = document.getElementById('dropZone');
                 let dragCounter = 0;
-                document.addEventListener('dragenter', (e) => {
-                    e.preventDefault();
-                    dragCounter++;
-                    if (dragCounter === 1) {
-                        dropZone.classList.add('active');
-                    }
-                });
-                document.addEventListener('dragleave', (e) => {
-                    e.preventDefault();
-                    dragCounter--;
-                    if (dragCounter === 0) {
-                        dropZone.classList.remove('active');
-                    }
-                });
-                document.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                });
+                document.addEventListener('dragenter', (e) => { e.preventDefault(); dragCounter++; if (dragCounter === 1) dropZone.classList.add('active'); });
+                document.addEventListener('dragleave', (e) => { e.preventDefault(); dragCounter--; if (dragCounter === 0) dropZone.classList.remove('active'); });
+                document.addEventListener('dragover', (e) => e.preventDefault());
                 document.addEventListener('drop', (e) => {
                     e.preventDefault();
                     dragCounter = 0;
                     dropZone.classList.remove('active');
-                    const files = e.dataTransfer.files;
-                    if (files.length > 0) {
-                        handleUpload(files);
-                    }
+                    if (e.dataTransfer.files.length) handleUpload(e.dataTransfer.files);
                 });
 
                 // 键盘快捷键
                 document.addEventListener('keydown', (e) => {
-                    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-                        e.preventDefault();
-                        saveCurrentFile();
-                    }
-                    if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
-                        e.preventDefault();
-                        showNewFileModal();
-                    }
+                    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveCurrentFile(); }
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'n') { e.preventDefault(); showNewFileModal(); }
                 });
 
-                // 窗口关闭前自动保存
                 window.addEventListener('beforeunload', () => {
                     localStorage.setItem('md-files', JSON.stringify(state.files));
                     localStorage.setItem('md-groups', JSON.stringify(Array.from(state.groups)));
@@ -2206,15 +2202,72 @@
                     }
                 });
 
-                // 编辑器变化时更新状态
-                state.editor.on('change', () => {
-                    updateStatusBar();
+                state.editor.on('change', updateStatusBar);
+            }
+
+            function toggleTheme() {
+                state.theme = state.theme === 'light' ? 'dark' : 'light';
+                localStorage.setItem('md-theme', state.theme);
+                applyTheme();
+            }
+
+            function applyTheme() {
+                document.documentElement.setAttribute('data-theme', state.theme);
+                if (state.editor) {
+                    state.editor.setOption('theme', state.theme === 'dark' ? 'material-darker' : 'one-light');
+                }
+                const hljsDark = document.getElementById('hljs-dark');
+                const hljsLight = document.getElementById('hljs-light');
+                if (state.theme === 'dark') {
+                    hljsDark.disabled = false;
+                    hljsLight.disabled = true;
+                } else {
+                    hljsDark.disabled = true;
+                    hljsLight.disabled = false;
+                }
+            }
+
+            function handleUpload(files) {
+                const group = state.currentGroup || '默认';
+                let count = 0;
+                const total = files.length;
+                Array.from(files).forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const content = e.target.result;
+                        const name = file.name || 'uploaded.md';
+                        const cleanName = name.endsWith('.md') || name.endsWith('.markdown') || name.endsWith('.txt') ? name : name + '.md';
+                        const path = `${group}/${cleanName}`;
+                        let finalPath = path;
+                        let counter = 1;
+                        while (state.files[finalPath]) {
+                            const ext = cleanName.includes('.') ? '.' + cleanName.split('.').pop() : '';
+                            const base = cleanName.replace(/\.[^.]+$/, '');
+                            finalPath = `${group}/${base}_${counter}${ext}`;
+                            counter++;
+                        }
+                        if (!state.groups.has(group)) state.groups.add(group);
+                        state.files[finalPath] = {
+                            name: finalPath.split('/').pop(),
+                            group: group,
+                            content: content,
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString(),
+                        };
+                        syncToGitFs(finalPath, content);
+                        count++;
+                        if (count === total) {
+                            renderFileTree();
+                            updateStatusBar();
+                            showToast(`成功上传 ${count} 个文件`, 'success');
+                        }
+                    };
+                    reader.readAsText(file);
                 });
             }
 
-            // ==================== 启动 ====================
+            // 启动
             document.addEventListener('DOMContentLoaded', init);
-            // 如果 DOM 已加载完成
             if (document.readyState === 'complete' || document.readyState === 'interactive') {
                 init();
             }

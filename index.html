@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Markdown 笔记 v1.1</title>
+    <title>Markdown 笔记 v1.2</title>
 
     <!-- CodeMirror 5 CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
@@ -804,6 +804,119 @@
             color: #000;
             border-radius: 2px;
         }
+
+        /* 自定义查找替换模态框 */
+        .find-replace-modal .modal {
+            width: 90vw;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            max-height: 80vh;
+        }
+        .find-replace-modal .modal-body {
+            flex: 1;
+            overflow-y: auto;
+            margin: 16px 0;
+        }
+        .find-replace-modal .fr-input-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .find-replace-modal .fr-input-group input {
+            flex: 1;
+            min-width: 120px;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            background: var(--bg);
+            color: var(--text);
+        }
+        .find-replace-modal .fr-results {
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 12px;
+        }
+        .find-replace-modal .fr-result-item {
+            padding: 10px 14px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            transition: background 0.15s;
+        }
+        .find-replace-modal .fr-result-item:last-child {
+            border-bottom: none;
+        }
+        .find-replace-modal .fr-result-item:hover {
+            background: var(--accent-light);
+        }
+        .find-replace-modal .fr-result-item.active {
+            background: var(--accent-light);
+            outline: 1px solid var(--accent);
+        }
+        .find-replace-modal .fr-result-item .fr-line {
+            color: var(--text-light);
+            min-width: 40px;
+            text-align: right;
+        }
+        .find-replace-modal .fr-result-item .fr-context {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .find-replace-modal .fr-result-item .fr-context mark {
+            background: #ffeb3b;
+            color: #000;
+            padding: 0 2px;
+            border-radius: 2px;
+        }
+        .find-replace-modal .fr-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            margin-top: 12px;
+        }
+        .find-replace-modal .fr-info {
+            font-size: 12px;
+            color: var(--text-light);
+            margin-bottom: 8px;
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .find-replace-modal .modal {
+                width: 100vw;
+                max-width: 100vw;
+                height: 100vh;
+                max-height: 100vh;
+                border-radius: 0;
+                padding: 16px;
+            }
+            .find-replace-modal .fr-input-group {
+                flex-direction: column;
+            }
+            .find-replace-modal .fr-input-group input {
+                width: 100%;
+            }
+            .find-replace-modal .fr-results {
+                max-height: 45vh;
+            }
+            .find-replace-modal .fr-actions .btn {
+                flex: 1;
+                text-align: center;
+                padding: 12px;
+                font-size: 14px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -854,7 +967,6 @@
 
     <!-- 主内容区域 -->
     <div class="main-container">
-        <!-- 侧边栏 -->
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <span class="title">📚 文件库</span>
@@ -869,7 +981,6 @@
             </div>
         </div>
 
-        <!-- 编辑器 -->
         <div class="editor-container" id="editorContainer">
             <div class="editor-tabs">
                 <div class="editor-tab active" data-mode="edit">✏️ 编辑</div>
@@ -889,7 +1000,6 @@
         </div>
     </div>
 
-    <!-- 状态栏 -->
     <div class="status-bar">
         <span><span class="dot"></span> 就绪</span>
         <span id="statusFile">未选择文件</span>
@@ -898,10 +1008,7 @@
         <span id="statusSearch"></span>
     </div>
 
-    <!-- Toast 容器 -->
     <div class="toast-container" id="toastContainer"></div>
-
-    <!-- 隐藏的文件上传 input -->
     <input type="file" id="fileUploadInput" accept=".md,.markdown,.txt" multiple style="display:none;">
 
     <!-- 引入脚本 -->
@@ -910,7 +1017,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
-    <!-- 引入 CodeMirror 搜索插件 -->
+    <!-- 搜索插件仍保留，但替换对话框我们将使用自定义 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/searchcursor.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/search.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
@@ -933,7 +1040,7 @@
 
             // ==================== 全局状态 ====================
             const state = {
-                files: {}, // { path: { name, group, content, createdAt, updatedAt } }
+                files: {},
                 groups: new Set(['默认']),
                 currentFile: null,
                 currentGroup: '默认',
@@ -950,9 +1057,15 @@
                 collapsedGroups: new Set(),
                 isDirty: false,
                 lastSavedContent: '',
-                selectedPaths: new Set(), // 多选文件路径
+                selectedPaths: new Set(),
                 sidebarCollapsed: localStorage.getItem('md-sidebar-collapsed') === 'true',
-                searchMarkers: [], // 存储当前高亮的标记
+                searchMarkers: [],
+                // 自定义查找替换相关
+                frMatches: [],        // 存储匹配项 {from, to, line, context}
+                frCurrentIndex: -1,   // 当前选中的匹配索引
+                frSearchTerm: '',
+                frReplaceTerm: '',
+                frModalOverlay: null, // 模态框引用
             };
 
             // ==================== Toast 通知 ====================
@@ -1026,10 +1139,11 @@
                         'Cmd-Z': function() { state.editor.undo(); },
                         'Ctrl-Y': function() { state.editor.redo(); },
                         'Cmd-Y': function() { state.editor.redo(); },
-                        'Ctrl-F': function() { state.editor.execCommand('find'); },
-                        'Cmd-F': function() { state.editor.execCommand('find'); },
-                        'Ctrl-H': function() { state.editor.execCommand('replace'); },
-                        'Cmd-H': function() { state.editor.execCommand('replace'); },
+                        // 禁用默认的 Ctrl+F 和 Ctrl+H，改用自定义
+                        'Ctrl-F': function() { openFindReplace(); },
+                        'Cmd-F': function() { openFindReplace(); },
+                        'Ctrl-H': function() { openFindReplace(); },
+                        'Cmd-H': function() { openFindReplace(); },
                     }
                 });
                 state.editor.on('change', function() {
@@ -1152,7 +1266,6 @@
                             const isActive = state.currentFile === path;
                             fileRow.className = 'node-row' + (isActive ? ' active' : '') + (isSelected ? ' selected' : '');
 
-                            // 如果搜索关键词存在，计算匹配次数并显示在badge
                             let matchCount = 0;
                             if (state.searchQuery) {
                                 const query = state.searchQuery.toLowerCase();
@@ -1224,7 +1337,6 @@
                 updateStatusBar();
                 showToast(`已打开: ${file.name}`, 'info');
 
-                // 如果有搜索关键词，自动在编辑器中高亮并滚动到第一个匹配
                 if (state.searchQuery) {
                     highlightSearchInEditor(state.searchQuery);
                 }
@@ -1236,7 +1348,6 @@
                     state.editor.clearHistory();
                 }
                 updatePreview();
-                // 清除之前的搜索高亮
                 clearSearchHighlights();
             }
 
@@ -1682,7 +1793,6 @@
                     } catch (e) {
                         await git.addRemote({ fs: state.gitFs, dir: '/repo', remote: 'origin', url: config.url });
                     }
-                    // 添加所有文件
                     const files = await state.gitFs.promises.readdir('/repo');
                     for (const file of files) {
                         if (file === '.git') continue;
@@ -1969,7 +2079,7 @@
                 }
             }
 
-            // ==================== 搜索功能 ====================
+            // ==================== 搜索功能（文件树全局搜索） ====================
             function handleSearch(query) {
                 state.searchQuery = query.trim().toLowerCase();
                 if (!state.searchQuery) {
@@ -1977,7 +2087,6 @@
                 }
                 renderFileTree();
                 updateStatusBar();
-                // 如果当前打开的文件，自动高亮搜索词
                 if (state.currentFile && state.searchQuery) {
                     highlightSearchInEditor(state.searchQuery);
                 } else if (state.currentFile && !state.searchQuery) {
@@ -1985,7 +2094,6 @@
                 }
             }
 
-            // 在编辑器中高亮所有匹配并滚动到第一个匹配
             function highlightSearchInEditor(query) {
                 clearSearchHighlights();
                 if (!query || !state.editor) return;
@@ -2009,6 +2117,214 @@
             function clearSearchHighlights() {
                 state.searchMarkers.forEach(marker => marker.clear());
                 state.searchMarkers = [];
+            }
+
+            // ==================== 自定义查找替换 ====================
+            function openFindReplace() {
+                // 如果已经打开，则聚焦
+                if (state.frModalOverlay) {
+                    state.frModalOverlay.querySelector('#fr-search-input').focus();
+                    return;
+                }
+                if (!state.editor) return;
+
+                // 创建模态框
+                const overlay = document.createElement('div');
+                overlay.className = 'modal-overlay find-replace-modal';
+                overlay.innerHTML = `
+                    <div class="modal">
+                        <h3>🔍 查找替换</h3>
+                        <div class="fr-input-group">
+                            <input type="text" id="fr-search-input" placeholder="查找内容">
+                            <input type="text" id="fr-replace-input" placeholder="替换为">
+                        </div>
+                        <div class="fr-info" id="fr-info"></div>
+                        <div class="fr-results" id="fr-results"></div>
+                        <div class="fr-actions">
+                            <button class="btn" id="fr-prev">⬆️ 上一个</button>
+                            <button class="btn" id="fr-next">⬇️ 下一个</button>
+                            <button class="btn primary" id="fr-replace-one">🔄 替换选中</button>
+                            <button class="btn danger" id="fr-replace-all">⚡ 全部替换</button>
+                            <button class="btn" id="fr-close">关闭</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+                state.frModalOverlay = overlay;
+
+                const searchInput = overlay.querySelector('#fr-search-input');
+                const replaceInput = overlay.querySelector('#fr-replace-input');
+                const resultsDiv = overlay.querySelector('#fr-results');
+                const infoDiv = overlay.querySelector('#fr-info');
+
+                // 关闭按钮
+                overlay.querySelector('#fr-close').addEventListener('click', closeFindReplace);
+                overlay.addEventListener('click', (e) => {
+                    if (e.target === overlay) closeFindReplace();
+                });
+
+                // 查找输入事件
+                searchInput.addEventListener('input', () => {
+                    performFindReplaceSearch(searchInput.value, replaceInput.value);
+                });
+                // 替换输入也可以触发重新搜索（因为上下文不变，但替换内容变了没关系）
+                replaceInput.addEventListener('input', () => {
+                    // 不需要重新搜索，只更新替换内容
+                });
+
+                // 上一个/下一个
+                overlay.querySelector('#fr-prev').addEventListener('click', () => navigateMatch(-1));
+                overlay.querySelector('#fr-next').addEventListener('click', () => navigateMatch(1));
+
+                // 替换选中
+                overlay.querySelector('#fr-replace-one').addEventListener('click', () => replaceCurrentMatch());
+
+                // 全部替换
+                overlay.querySelector('#fr-replace-all').addEventListener('click', () => replaceAllMatches());
+
+                // 初始聚焦
+                setTimeout(() => searchInput.focus(), 100);
+            }
+
+            function closeFindReplace() {
+                if (state.frModalOverlay) {
+                    state.frModalOverlay.remove();
+                    state.frModalOverlay = null;
+                    state.frMatches = [];
+                    state.frCurrentIndex = -1;
+                }
+            }
+
+            function performFindReplaceSearch(searchTerm, replaceTerm) {
+                state.frSearchTerm = searchTerm;
+                state.frReplaceTerm = replaceTerm;
+                state.frMatches = [];
+                state.frCurrentIndex = -1;
+
+                if (!searchTerm) {
+                    updateFindReplaceUI();
+                    return;
+                }
+
+                const cursor = state.editor.getSearchCursor(searchTerm, { line: 0, ch: 0 }, { caseFold: true });
+                while (cursor.findNext()) {
+                    const from = cursor.from();
+                    const to = cursor.to();
+                    const line = from.line;
+                    const lineText = state.editor.getLine(line);
+                    const start = Math.max(0, from.ch - 20);
+                    const end = Math.min(lineText.length, to.ch + 20);
+                    const context = lineText.substring(start, end);
+                    state.frMatches.push({
+                        from: from,
+                        to: to,
+                        line: line + 1, // 1-based for display
+                        context: context,
+                        startOffset: from.ch - start,
+                        endOffset: to.ch - start
+                    });
+                }
+
+                if (state.frMatches.length > 0) {
+                    state.frCurrentIndex = 0;
+                    // 高亮所有匹配
+                    clearSearchHighlights();
+                    state.frMatches.forEach(match => {
+                        const marker = state.editor.markText(match.from, match.to, { className: 'cm-search-match' });
+                        state.searchMarkers.push(marker);
+                    });
+                    selectMatch(0);
+                } else {
+                    clearSearchHighlights();
+                }
+
+                updateFindReplaceUI();
+            }
+
+            function updateFindReplaceUI() {
+                if (!state.frModalOverlay) return;
+                const resultsDiv = state.frModalOverlay.querySelector('#fr-results');
+                const infoDiv = state.frModalOverlay.querySelector('#fr-info');
+
+                // 更新信息
+                if (state.frMatches.length === 0) {
+                    infoDiv.textContent = state.frSearchTerm ? '未找到匹配项' : '';
+                } else {
+                    infoDiv.textContent = `找到 ${state.frMatches.length} 个匹配项，当前第 ${state.frCurrentIndex + 1} 个`;
+                }
+
+                // 渲染结果列表
+                resultsDiv.innerHTML = '';
+                state.frMatches.forEach((match, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'fr-result-item' + (index === state.frCurrentIndex ? ' active' : '');
+                    // 高亮匹配部分
+                    const before = match.context.substring(0, match.startOffset);
+                    const matched = match.context.substring(match.startOffset, match.endOffset);
+                    const after = match.context.substring(match.endOffset);
+                    const highlightedContext = escapeHtml(before) + `<mark>${escapeHtml(matched)}</mark>` + escapeHtml(after);
+                    item.innerHTML = `
+                        <span class="fr-line">${match.line}</span>
+                        <span class="fr-context">${highlightedContext}</span>
+                    `;
+                    item.addEventListener('click', () => {
+                        selectMatch(index);
+                    });
+                    resultsDiv.appendChild(item);
+                });
+            }
+
+            function selectMatch(index) {
+                if (index < 0 || index >= state.frMatches.length) return;
+                state.frCurrentIndex = index;
+                const match = state.frMatches[index];
+                state.editor.setSelection(match.from, match.to);
+                state.editor.scrollIntoView(match.from, 50);
+                updateFindReplaceUI();
+            }
+
+            function navigateMatch(direction) {
+                if (state.frMatches.length === 0) return;
+                let newIndex = state.frCurrentIndex + direction;
+                if (newIndex < 0) newIndex = state.frMatches.length - 1;
+                if (newIndex >= state.frMatches.length) newIndex = 0;
+                selectMatch(newIndex);
+            }
+
+            function replaceCurrentMatch() {
+                if (!state.frModalOverlay || state.frMatches.length === 0) return;
+                const match = state.frMatches[state.frCurrentIndex];
+                if (!match) return;
+                const replaceTerm = state.frModalOverlay.querySelector('#fr-replace-input').value;
+                state.editor.replaceRange(replaceTerm, match.from, match.to);
+                // 替换后需要重新计算匹配位置
+                performFindReplaceSearch(state.frSearchTerm, replaceTerm);
+                // 更新当前文件内容
+                if (state.currentFile) {
+                    state.files[state.currentFile].content = state.editor.getValue();
+                    state.files[state.currentFile].updatedAt = new Date().toISOString();
+                    state.isDirty = true;
+                    updateStatusBar();
+                }
+            }
+
+            function replaceAllMatches() {
+                if (!state.frModalOverlay || state.frMatches.length === 0) return;
+                const replaceTerm = state.frModalOverlay.querySelector('#fr-replace-input').value;
+                // 从后往前替换，避免位置偏移
+                for (let i = state.frMatches.length - 1; i >= 0; i--) {
+                    const match = state.frMatches[i];
+                    state.editor.replaceRange(replaceTerm, match.from, match.to);
+                }
+                // 重新搜索并更新UI
+                performFindReplaceSearch(state.frSearchTerm, replaceTerm);
+                if (state.currentFile) {
+                    state.files[state.currentFile].content = state.editor.getValue();
+                    state.files[state.currentFile].updatedAt = new Date().toISOString();
+                    state.isDirty = true;
+                    updateStatusBar();
+                }
+                showToast(`已替换 ${state.frMatches.length} 处`, 'success');
             }
 
             // ==================== 初始化 ====================
@@ -2085,10 +2401,8 @@
                 document.getElementById('btnExportAll').addEventListener('click', exportAllFiles);
                 document.getElementById('btnToggleSidebar').addEventListener('click', toggleSidebar);
 
-                // 查找替换按钮
-                document.getElementById('btnFindReplace').addEventListener('click', () => {
-                    if (state.editor) state.editor.execCommand('replace');
-                });
+                // 查找替换按钮改为打开自定义面板
+                document.getElementById('btnFindReplace').addEventListener('click', openFindReplace);
 
                 document.getElementById('fileUploadInput').addEventListener('change', (e) => {
                     handleUpload(e.target.files);

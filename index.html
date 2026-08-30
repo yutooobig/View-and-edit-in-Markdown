@@ -622,22 +622,12 @@
             margin-top: 16px;
         }
         @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-            to {
-                opacity: 1;
-            }
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
         @keyframes slideUp {
-            from {
-                transform: translateY(20px);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }
 
         /* Toast 通知 */
@@ -662,36 +652,18 @@
             gap: 8px;
             letter-spacing: 0.2px;
         }
-        .toast.success {
-            background: #27ae60;
-            color: #fff;
-        }
-        .toast.error {
-            background: #e74c3c;
-            color: #fff;
-        }
-        .toast.info {
-            background: #4a90d9;
-            color: #fff;
-        }
+        .toast.success { background: #27ae60; color: #fff; }
+        .toast.error { background: #e74c3c; color: #fff; }
+        .toast.info { background: #4a90d9; color: #fff; }
         @keyframes slideIn {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
 
         /* 拖放上传区域 */
         .drop-zone {
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(74, 144, 217, 0.15);
             border: 3px dashed var(--accent);
             z-index: 3000;
@@ -704,12 +676,9 @@
             backdrop-filter: blur(4px);
             pointer-events: none;
         }
-        .drop-zone.active {
-            display: flex;
-            pointer-events: all;
-        }
+        .drop-zone.active { display: flex; pointer-events: all; }
 
-        /* 搜索 */
+        /* 搜索框 */
         .search-input {
             padding: 7px 12px;
             border: 1px solid var(--border);
@@ -730,43 +699,16 @@
 
         /* 响应式 */
         @media (max-width: 768px) {
-            .sidebar {
-                width: 200px;
-                min-width: 150px;
-            }
-            .preview-pane {
-                padding: 12px 14px;
-            }
-            .editor-content {
-                flex-direction: column;
-            }
-            .editor-pane {
-                border-right: none;
-                border-bottom: 1px solid var(--border);
-                flex: none;
-                height: 50%;
-            }
-            .preview-pane {
-                flex: 1;
-            }
-            .toolbar {
-                padding: 6px 8px;
-                gap: 4px;
-            }
-            .btn {
-                padding: 5px 8px;
-                font-size: 12px;
-            }
-            .btn .btn-text {
-                display: none;
-            }
-            .search-input {
-                width: 100px;
-                font-size: 12px;
-            }
-            .search-input:focus {
-                width: 130px;
-            }
+            .sidebar { width: 200px; min-width: 150px; }
+            .preview-pane { padding: 12px 14px; }
+            .editor-content { flex-direction: column; }
+            .editor-pane { border-right: none; border-bottom: 1px solid var(--border); flex: none; height: 50%; }
+            .preview-pane { flex: 1; }
+            .toolbar { padding: 6px 8px; gap: 4px; }
+            .btn { padding: 5px 8px; font-size: 12px; }
+            .btn .btn-text { display: none; }
+            .search-input { width: 100px; font-size: 12px; }
+            .search-input:focus { width: 130px; }
         }
 
         /* 空状态 */
@@ -780,35 +722,20 @@
             text-align: center;
             gap: 8px;
         }
-        .empty-state .icon {
-            font-size: 48px;
-            margin-bottom: 8px;
-            opacity: 0.6;
-        }
-        .empty-state .text {
-            font-size: 14px;
-            font-weight: 500;
-        }
-        .empty-state .sub {
-            font-size: 12px;
-            opacity: 0.7;
-        }
+        .empty-state .icon { font-size: 48px; margin-bottom: 8px; opacity: 0.6; }
+        .empty-state .text { font-size: 14px; font-weight: 500; }
+        .empty-state .sub { font-size: 12px; opacity: 0.7; }
 
         /* 加载指示器 */
         .loading-spinner {
             display: inline-block;
-            width: 16px;
-            height: 16px;
+            width: 16px; height: 16px;
             border: 2px solid var(--border);
             border-top-color: var(--accent);
             border-radius: 50%;
             animation: spin 0.7s linear infinite;
         }
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
         /* 状态栏 */
         .status-bar {
@@ -825,23 +752,13 @@
             user-select: none;
         }
         .status-bar .dot {
-            width: 7px;
-            height: 7px;
+            width: 7px; height: 7px;
             border-radius: 50%;
             background: var(--success);
             display: inline-block;
             animation: pulse 2s infinite;
         }
-        @keyframes pulse {
-            0%,
-            100% {
-                opacity: 1;
-            }
-            50% {
-                opacity: 0.4;
-            }
-        }
-
+        @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
 
         /* 侧边栏收起动画 */
         .sidebar {
@@ -856,24 +773,14 @@
         }
 
         /* 工具栏按钮紧凑排列 */
-        .toolbar .btn {
-            margin: 2px 0;
-        }
+        .toolbar .btn { margin: 2px 0; }
 
         /* 窄屏适配优化 */
         @media (max-width: 768px) {
-            .editor-pane {
-                min-height: 200px;
-            }
-            .preview-pane {
-                min-height: 200px;
-            }
-            .toolbar {
-                padding: 4px;
-            }
-            .btn .btn-text {
-                display: none;
-            }
+            .editor-pane { min-height: 200px; }
+            .preview-pane { min-height: 200px; }
+            .toolbar { padding: 4px; }
+            .btn .btn-text { display: none; }
         }
 
         /* 多选高亮 */
@@ -884,6 +791,18 @@
         .tree-node .node-row.selected.active {
             background: var(--accent);
             color: #fff;
+        }
+
+        /* 搜索高亮 */
+        .cm-search-match {
+            background: #ffee00;
+            color: #000;
+            border-radius: 2px;
+        }
+        .cm-search-match-selected {
+            background: #ff9632;
+            color: #000;
+            border-radius: 2px;
         }
     </style>
 </head>
@@ -924,6 +843,8 @@
         <button class="btn sm" id="btnGitPull" title="从远程仓库拉取">⬇️ Pull</button>
         <button class="btn sm success" id="btnGitPush" title="推送到远程仓库">⬆️ Push</button>
         <button class="btn sm" id="btnGitConfig" title="Git 仓库配置">⚙️ Git</button>
+        <div class="sep"></div>
+        <button class="btn sm" id="btnFindReplace" title="查找替换 (Ctrl+H)">🔍 查找替换</button>
         <div class="sep"></div>
         <input type="text" class="search-input" id="searchInput" placeholder="🔍 搜索文件...">
         <div style="flex:1;"></div>
@@ -974,6 +895,7 @@
         <span id="statusFile">未选择文件</span>
         <span id="statusChars">0 字符</span>
         <span id="statusGit">Git: 未配置</span>
+        <span id="statusSearch"></span>
     </div>
 
     <!-- Toast 容器 -->
@@ -988,6 +910,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
+    <!-- 引入 CodeMirror 搜索插件 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/searchcursor.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/search.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/javascript.min.js"></script>
@@ -1026,7 +951,8 @@
                 isDirty: false,
                 lastSavedContent: '',
                 selectedPaths: new Set(), // 多选文件路径
-                sidebarCollapsed: localStorage.getItem('md-sidebar-collapsed') === 'true', // 侧边栏状态
+                sidebarCollapsed: localStorage.getItem('md-sidebar-collapsed') === 'true',
+                searchMarkers: [], // 存储当前高亮的标记
             };
 
             // ==================== Toast 通知 ====================
@@ -1100,6 +1026,10 @@
                         'Cmd-Z': function() { state.editor.undo(); },
                         'Ctrl-Y': function() { state.editor.redo(); },
                         'Cmd-Y': function() { state.editor.redo(); },
+                        'Ctrl-F': function() { state.editor.execCommand('find'); },
+                        'Cmd-F': function() { state.editor.execCommand('find'); },
+                        'Ctrl-H': function() { state.editor.execCommand('replace'); },
+                        'Cmd-H': function() { state.editor.execCommand('replace'); },
                     }
                 });
                 state.editor.on('change', function() {
@@ -1221,15 +1151,29 @@
                             const isSelected = state.selectedPaths.has(path);
                             const isActive = state.currentFile === path;
                             fileRow.className = 'node-row' + (isActive ? ' active' : '') + (isSelected ? ' selected' : '');
+
+                            // 如果搜索关键词存在，计算匹配次数并显示在badge
+                            let matchCount = 0;
+                            if (state.searchQuery) {
+                                const query = state.searchQuery.toLowerCase();
+                                const content = file.content.toLowerCase();
+                                let idx = content.indexOf(query);
+                                while (idx !== -1) {
+                                    matchCount++;
+                                    idx = content.indexOf(query, idx + query.length);
+                                }
+                            }
+                            const badgeHtml = matchCount > 0 ? `<span class="node-badge" style="background:var(--accent-light);color:var(--accent)">${matchCount}</span>` : '';
+
                             fileRow.innerHTML = `
                                 <span class="toggle-arrow leaf">▶</span>
                                 <span class="node-icon">📄</span>
                                 <span class="node-name">${escapeHtml(file.name)}</span>
+                                ${badgeHtml}
                             `;
                             fileRow.addEventListener('click', (e) => {
                                 e.stopPropagation();
                                 if (e.ctrlKey || e.metaKey) {
-                                    // 多选切换
                                     if (state.selectedPaths.has(path)) {
                                         state.selectedPaths.delete(path);
                                     } else {
@@ -1237,7 +1181,6 @@
                                     }
                                     renderFileTree();
                                 } else {
-                                    // 单选：清除其他选中，只保留当前
                                     state.selectedPaths.clear();
                                     state.selectedPaths.add(path);
                                     openFile(path);
@@ -1280,6 +1223,11 @@
                 renderFileTree();
                 updateStatusBar();
                 showToast(`已打开: ${file.name}`, 'info');
+
+                // 如果有搜索关键词，自动在编辑器中高亮并滚动到第一个匹配
+                if (state.searchQuery) {
+                    highlightSearchInEditor(state.searchQuery);
+                }
             }
 
             function setEditorContent(content) {
@@ -1288,6 +1236,8 @@
                     state.editor.clearHistory();
                 }
                 updatePreview();
+                // 清除之前的搜索高亮
+                clearSearchHighlights();
             }
 
             function saveCurrentFile() {
@@ -1868,7 +1818,6 @@
                     return;
                 }
                 if (selectedPaths.length === 1) {
-                    // 单个文件导出
                     const path = selectedPaths[0];
                     const file = state.files[path];
                     if (!file) return;
@@ -1881,7 +1830,6 @@
                     URL.revokeObjectURL(url);
                     showToast(`已导出: ${file.name}`, 'success');
                 } else {
-                    // 多个文件打包导出
                     exportFilesAsZip(selectedPaths);
                 }
             }
@@ -1900,7 +1848,6 @@
                 for (const path of paths) {
                     const file = state.files[path];
                     if (!file) continue;
-                    // 按分组路径组织
                     const folder = zip.folder(file.group);
                     if (folder) {
                         folder.file(file.name, file.content);
@@ -1930,7 +1877,6 @@
                 } else {
                     sidebar.classList.remove('collapsed');
                 }
-                // 刷新编辑器尺寸
                 if (state.editor) {
                     setTimeout(() => state.editor.refresh(), 300);
                 }
@@ -1941,6 +1887,7 @@
                 const fileEl = document.getElementById('statusFile');
                 const charsEl = document.getElementById('statusChars');
                 const gitEl = document.getElementById('statusGit');
+                const searchEl = document.getElementById('statusSearch');
                 if (state.currentFile && state.files[state.currentFile]) {
                     const file = state.files[state.currentFile];
                     fileEl.textContent = `📄 ${file.group}/${file.name}` + (state.isDirty ? ' ●' : '');
@@ -1955,6 +1902,11 @@
                     gitEl.textContent = `Git: ${state.gitConfig.url.split('/').pop()}`;
                 } else {
                     gitEl.textContent = 'Git: 未配置';
+                }
+                if (state.searchQuery) {
+                    searchEl.textContent = `🔍 搜索: "${state.searchQuery}"`;
+                } else {
+                    searchEl.textContent = '';
                 }
             }
 
@@ -2017,68 +1969,46 @@
                 }
             }
 
-            // ==================== 搜索 ====================
+            // ==================== 搜索功能 ====================
             function handleSearch(query) {
-                state.searchQuery = query.toLowerCase();
-                if (!query) {
-                    renderFileTree();
-                    return;
+                state.searchQuery = query.trim().toLowerCase();
+                if (!state.searchQuery) {
+                    clearSearchHighlights();
                 }
-                const results = Object.entries(state.files).filter(([path, file]) => {
-                    return file.name.toLowerCase().includes(state.searchQuery) ||
-                        file.content.toLowerCase().includes(state.searchQuery) ||
-                        file.group.toLowerCase().includes(state.searchQuery);
-                });
-                renderFileTreeWithSearch(results.map(([path]) => path));
+                renderFileTree();
+                updateStatusBar();
+                // 如果当前打开的文件，自动高亮搜索词
+                if (state.currentFile && state.searchQuery) {
+                    highlightSearchInEditor(state.searchQuery);
+                } else if (state.currentFile && !state.searchQuery) {
+                    clearSearchHighlights();
+                }
             }
 
-            function renderFileTreeWithSearch(matchedPaths) {
-                const treeEl = document.getElementById('fileTree');
-                treeEl.innerHTML = '';
-                if (matchedPaths.length === 0) {
-                    treeEl.innerHTML = `<div class="empty-state"><div class="icon">🔍</div><div class="text">无搜索结果</div></div>`;
-                    return;
+            // 在编辑器中高亮所有匹配并滚动到第一个匹配
+            function highlightSearchInEditor(query) {
+                clearSearchHighlights();
+                if (!query || !state.editor) return;
+                const cursor = state.editor.getSearchCursor(query, { line: 0, ch: 0 }, { caseFold: true });
+                let firstMatch = null;
+                while (cursor.findNext()) {
+                    const from = cursor.from();
+                    const to = cursor.to();
+                    const marker = state.editor.markText(from, to, { className: 'cm-search-match' });
+                    state.searchMarkers.push(marker);
+                    if (!firstMatch) {
+                        firstMatch = { from, to };
+                    }
                 }
-                const groups = new Set(matchedPaths.map(p => state.files[p]?.group).filter(Boolean));
-                groups.forEach(group => {
-                    const groupFiles = matchedPaths.filter(p => state.files[p]?.group === group);
-                    const groupNode = document.createElement('div');
-                    groupNode.className = 'tree-node';
-                    const nodeRow = document.createElement('div');
-                    nodeRow.className = 'node-row';
-                    nodeRow.innerHTML = `<span class="toggle-arrow expanded">▶</span><span class="node-icon">📁</span><span class="node-name">${escapeHtml(group)}</span><span class="node-badge">${groupFiles.length}</span>`;
-                    groupNode.appendChild(nodeRow);
-                    const childrenDiv = document.createElement('div');
-                    childrenDiv.className = 'node-children';
-                    groupFiles.forEach(path => {
-                        const file = state.files[path];
-                        const fileNode = document.createElement('div');
-                        fileNode.className = 'tree-node';
-                        const fileRow = document.createElement('div');
-                        const isSelected = state.selectedPaths.has(path);
-                        const isActive = state.currentFile === path;
-                        fileRow.className = 'node-row' + (isActive ? ' active' : '') + (isSelected ? ' selected' : '');
-                        fileRow.innerHTML = `<span class="toggle-arrow leaf">▶</span><span class="node-icon">📄</span><span class="node-name">${escapeHtml(file.name)}</span>`;
-                        fileRow.addEventListener('click', (e) => {
-                            if (e.ctrlKey || e.metaKey) {
-                                if (state.selectedPaths.has(path)) {
-                                    state.selectedPaths.delete(path);
-                                } else {
-                                    state.selectedPaths.add(path);
-                                }
-                                renderFileTree();
-                            } else {
-                                state.selectedPaths.clear();
-                                state.selectedPaths.add(path);
-                                openFile(path);
-                            }
-                        });
-                        fileNode.appendChild(fileRow);
-                        childrenDiv.appendChild(fileNode);
-                    });
-                    groupNode.appendChild(childrenDiv);
-                    treeEl.appendChild(groupNode);
-                });
+                if (firstMatch) {
+                    state.editor.setSelection(firstMatch.from, firstMatch.to);
+                    state.editor.scrollIntoView(firstMatch.from, 50);
+                }
+            }
+
+            function clearSearchHighlights() {
+                state.searchMarkers.forEach(marker => marker.clear());
+                state.searchMarkers = [];
             }
 
             // ==================== 初始化 ====================
@@ -2088,7 +2018,7 @@
                 initEditor();
                 applyTheme();
                 setViewMode('split');
-                applySidebarState(); // 应用侧边栏初始状态
+                applySidebarState();
                 await initGitFs();
 
                 const savedFiles = localStorage.getItem('md-files');
@@ -2124,7 +2054,6 @@
             }
 
             function bindEvents() {
-                // 原有按钮
                 document.getElementById('btnNewFile').addEventListener('click', () => showNewFileModal());
                 document.getElementById('btnNewGroup').addEventListener('click', () => showNewGroupModal());
                 document.getElementById('btnUpload').addEventListener('click', () => document.getElementById('fileUploadInput').click());
@@ -2146,7 +2075,6 @@
                     renderFileTree();
                 });
 
-                // 新增按钮
                 document.getElementById('btnUndo').addEventListener('click', () => {
                     if (state.editor) state.editor.undo();
                 });
@@ -2157,18 +2085,20 @@
                 document.getElementById('btnExportAll').addEventListener('click', exportAllFiles);
                 document.getElementById('btnToggleSidebar').addEventListener('click', toggleSidebar);
 
-                // 文件上传
+                // 查找替换按钮
+                document.getElementById('btnFindReplace').addEventListener('click', () => {
+                    if (state.editor) state.editor.execCommand('replace');
+                });
+
                 document.getElementById('fileUploadInput').addEventListener('change', (e) => {
                     handleUpload(e.target.files);
                     e.target.value = '';
                 });
 
-                // 搜索
                 document.getElementById('searchInput').addEventListener('input', (e) => {
                     handleSearch(e.target.value);
                 });
 
-                // 编辑器标签
                 document.querySelectorAll('.editor-tab').forEach(tab => {
                     tab.addEventListener('click', () => setViewMode(tab.dataset.mode));
                 });

@@ -14,8 +14,12 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" id="hljs-dark">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.min.css" id="hljs-light" disabled>
 
-    <!-- Font Awesome 6 (免费图标库) -->
+    <!-- Font Awesome 6 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+    <!-- JSZip 用于导出多个文件 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js">
+    </script>
 
     <style>
         :root {
@@ -96,16 +100,14 @@
             background: var(--bg-toolbar);
             border-bottom: 1px solid var(--border);
             flex-shrink: 0;
-            flex-wrap: nowrap;
+            flex-wrap: wrap;
             z-index: 100;
             box-shadow: var(--shadow-sm);
             transition: background var(--transition);
             min-height: var(--toolbar-height);
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: none;
+            align-content: center;
+            overflow: visible;
         }
-        .toolbar::-webkit-scrollbar { display: none; }
 
         .toolbar .logo {
             font-weight: 700;
@@ -129,9 +131,10 @@
             background: var(--border);
             margin: 0 2px;
             flex-shrink: 0;
+            align-self: center;
         }
 
-        /* 按钮组 — 滚动容器，按钮自动换行 */
+        /* 按钮组 */
         .toolbar-btn-group {
             display: flex;
             align-items: center;
@@ -349,6 +352,13 @@
             gap: 2px;
             min-height: 34px;
             transition: background var(--transition);
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        .editor-tabs::-webkit-scrollbar {
+            display: none;
         }
         .editor-tab {
             padding: 6px 12px;
@@ -362,6 +372,8 @@
             display: flex;
             align-items: center;
             gap: 4px;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
         .editor-tab:hover {
             color: var(--text);
@@ -401,6 +413,8 @@
             background: var(--bg);
             transition: background var(--transition);
             min-height: 26px;
+            white-space: nowrap;
+            overflow: hidden;
         }
         .CodeMirror {
             flex: 1;
@@ -450,8 +464,11 @@
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
             scrollbar-width: none;
+            flex-wrap: nowrap;
         }
-        .status-bar::-webkit-scrollbar { display: none; }
+        .status-bar::-webkit-scrollbar {
+            display: none;
+        }
         .status-bar .dot {
             width: 6px;
             height: 6px;
@@ -465,23 +482,27 @@
             white-space: nowrap;
             flex-shrink: 0;
         }
-        @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+        @keyframes pulse {
+            0%,
+            100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.4;
+            }
+        }
 
-        /* ===== 响应式：移动端优先 ===== */
+        /* ===== 响应式：移动端 ===== */
         @media (max-width: 768px) {
             :root {
                 --toolbar-height: 46px;
                 --status-height: 24px;
             }
-            .sidebar {
-                width: 200px;
-                min-width: 140px;
-                max-width: 280px;
-            }
             .toolbar {
                 padding: 4px 6px;
                 gap: 2px;
                 min-height: var(--toolbar-height);
+                align-content: center;
             }
             .toolbar .logo {
                 font-size: 13px;
@@ -492,8 +513,12 @@
                 height: 16px;
             }
             .toolbar .sep {
-                height: 18px;
-                margin: 0 1px;
+                display: none;
+            }
+            .toolbar-right {
+                margin-left: 0;
+                width: auto;
+                flex-shrink: 0;
             }
             .btn {
                 padding: 4px 6px;
@@ -508,6 +533,11 @@
             }
             .toolbar-btn-group .btn {
                 padding: 5px 6px;
+            }
+            .sidebar {
+                width: 200px;
+                min-width: 140px;
+                max-width: 280px;
             }
             .editor-content {
                 flex-direction: column;
@@ -537,7 +567,6 @@
                 gap: 8px;
                 min-height: var(--status-height);
             }
-            /* 移动端侧边栏默认收起 */
             .sidebar:not(.collapsed) {
                 width: 200px !important;
                 min-width: 140px !important;
@@ -580,7 +609,6 @@
                 padding: 10px;
                 font-size: 12px;
             }
-            /* 树节点触摸优化 */
             .tree-node .node-row {
                 padding: 8px 6px;
                 min-height: 36px;
@@ -643,7 +671,7 @@
             }
         }
 
-        /* ===== 其余通用样式 ===== */
+        /* ===== 标记样式 ===== */
         .markdown-body {
             font-size: 15px;
             line-height: 1.8;
@@ -865,12 +893,22 @@
             flex-wrap: wrap;
         }
         @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
         }
         @keyframes slideUp {
-            from { transform: translateY(20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
         }
 
         /* Toast */
@@ -897,18 +935,36 @@
             letter-spacing: 0.2px;
             word-break: break-word;
         }
-        .toast.success { background: #27ae60; color: #fff; }
-        .toast.error { background: #e74c3c; color: #fff; }
-        .toast.info { background: #4a90d9; color: #fff; }
+        .toast.success {
+            background: #27ae60;
+            color: #fff;
+        }
+        .toast.error {
+            background: #e74c3c;
+            color: #fff;
+        }
+        .toast.info {
+            background: #4a90d9;
+            color: #fff;
+        }
         @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
         }
 
         /* 拖放 */
         .drop-zone {
             position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             background: rgba(74, 144, 217, 0.15);
             border: 3px dashed var(--accent);
             z-index: 3000;
@@ -921,7 +977,10 @@
             backdrop-filter: blur(4px);
             pointer-events: none;
         }
-        .drop-zone.active { display: flex; pointer-events: all; }
+        .drop-zone.active {
+            display: flex;
+            pointer-events: all;
+        }
 
         /* 树节点 */
         .tree-node {
@@ -1015,9 +1074,19 @@
             text-align: center;
             gap: 6px;
         }
-        .empty-state .icon { font-size: 36px; margin-bottom: 4px; opacity: 0.6; }
-        .empty-state .text { font-size: 13px; font-weight: 500; }
-        .empty-state .sub { font-size: 11px; opacity: 0.7; }
+        .empty-state .icon {
+            font-size: 36px;
+            margin-bottom: 4px;
+            opacity: 0.6;
+        }
+        .empty-state .text {
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .empty-state .sub {
+            font-size: 11px;
+            opacity: 0.7;
+        }
 
         .cm-search-match {
             background: #ffee00;
@@ -1140,7 +1209,7 @@
         <span>📂 松开以导入 Markdown 文件</span>
     </div>
 
-    <!-- ===== 顶部工具栏（分组化） ===== -->
+    <!-- ===== 顶部工具栏 ===== -->
     <div class="toolbar" id="toolbar">
         <!-- Logo -->
         <div class="logo">
@@ -1245,26 +1314,46 @@
     <input type="file" id="fileUploadInput" accept=".md,.markdown,.txt" multiple style="display:none;">
 
     <!-- ===== 引入脚本 ===== -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/markdown/markdown.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/searchcursor.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/search.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/javascript.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/xml.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/css.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/go.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/rust.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/markdown/markdown.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/searchcursor.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/search.min.js">
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/javascript.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/xml.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/css.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/go.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/rust.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js">
+    </script>
 
     <script>
         (function() {
@@ -1464,7 +1553,8 @@
 
                     const isCollapsed = state.collapsedGroups.has(group);
                     const nodeRow = document.createElement('div');
-                    nodeRow.className = 'node-row' + (state.currentGroup === group && !state.currentFile ? ' active' : '');
+                    nodeRow.className = 'node-row' + (state.currentGroup === group && !state.currentFile ? ' active' :
+                        '');
                     nodeRow.innerHTML = `
                         <span class="toggle-arrow ${isCollapsed ? '' : 'expanded'}">▶</span>
                         <span class="node-icon">📁</span>
@@ -1495,7 +1585,8 @@
                             const fileRow = document.createElement('div');
                             const isSelected = state.selectedPaths.has(path);
                             const isActive = state.currentFile === path;
-                            fileRow.className = 'node-row' + (isActive ? ' active' : '') + (isSelected ? ' selected' : '');
+                            fileRow.className = 'node-row' + (isActive ? ' active' : '') + (isSelected ?
+                                ' selected' : '');
 
                             let matchCount = 0;
                             if (state.searchQuery) {
@@ -1507,7 +1598,9 @@
                                     idx = content.indexOf(query, idx + query.length);
                                 }
                             }
-                            const badgeHtml = matchCount > 0 ? `<span class="node-badge" style="background:var(--accent-light);color:var(--accent)">${matchCount}</span>` : '';
+                            const badgeHtml = matchCount > 0 ?
+                                `<span class="node-badge" style="background:var(--accent-light);color:var(--accent)">${matchCount}</span>` :
+                                '';
 
                             fileRow.innerHTML = `
                                 <span class="toggle-arrow leaf">▶</span>
@@ -1718,7 +1811,8 @@
                 if (!state.groups.has(name)) return;
                 const filesInGroup = Object.entries(state.files).filter(([p, f]) => f.group === name);
                 if (filesInGroup.length > 0) {
-                    if (!confirm(`分组「${name}」中有 ${filesInGroup.length} 个文件，确定删除并移动文件到「默认」？`)) return;
+                    if (!confirm(`分组「${name}」中有 ${filesInGroup.length} 个文件，确定删除并移动文件到「默认」？`))
+                        return;
                     filesInGroup.forEach(([path, file]) => {
                         const newPath = `默认/${file.name}`;
                         let finalPath = newPath;
@@ -1864,7 +1958,6 @@
                         moveFileToGroup(path, newGroup);
                     }
                     if (newName !== file.name) {
-                        const newPath = `${newGroup}/${newName}`;
                         renameFile(path, newName);
                     }
                     return true;
@@ -1912,7 +2005,8 @@
             // ==================== Git 文件系统 ====================
             async function initGitFs() {
                 try {
-                    const { default: LightningFS } = await import('https://esm.sh/@isomorphic-git/lightning-fs@1.3.0');
+                    const { default: LightningFS } = await import(
+                        'https://esm.sh/@isomorphic-git/lightning-fs@1.3.0');
                     state.gitFs = new LightningFS('markdown-fs', { wipe: false });
                     state.gitModule = await import('https://esm.sh/isomorphic-git@1.25.10');
                     state.fsReady = true;
@@ -1981,9 +2075,11 @@
                         dir: '/repo',
                         ref: config.branch || 'main',
                         singleBranch: true,
-                        author: { name: config.username || 'user', email: (config.username || 'user') + '@users.noreply.github.com' },
+                        author: { name: config.username || 'user', email: (config.username || 'user') +
+                                '@users.noreply.github.com' },
                     });
-                    showToast(`拉取成功！${result.files && result.files.length ? '更新了 ' + result.files.length + ' 个文件' : '已是最新'}`, 'success');
+                    showToast(`拉取成功！${result.files && result.files.length ? '更新了 ' + result.files.length + ' 个文件' : '已是最新'}`,
+                        'success');
                     await reloadFromGitFs();
                 } catch (e) {
                     console.error('Pull 失败:', e);
@@ -2012,13 +2108,16 @@
                         await git.getConfig({ fs: state.gitFs, dir: '/repo', path: 'user.name' });
                     } catch (e) {
                         await git.init({ fs: state.gitFs, dir: '/repo', defaultBranch: config.branch || 'main' });
-                        await git.setConfig({ fs: state.gitFs, dir: '/repo', path: 'user.name', value: config.username || 'markdown-user' });
-                        await git.setConfig({ fs: state.gitFs, dir: '/repo', path: 'user.email', value: (config.username || 'markdown-user') + '@users.noreply.github.com' });
+                        await git.setConfig({ fs: state.gitFs, dir: '/repo', path: 'user.name', value: config
+                                .username || 'markdown-user' });
+                        await git.setConfig({ fs: state.gitFs, dir: '/repo', path: 'user.email', value: (config
+                                .username || 'markdown-user') + '@users.noreply.github.com' });
                     }
                     try {
                         const remotes = await git.listRemotes({ fs: state.gitFs, dir: '/repo' });
                         if (!remotes.some(r => r.url === config.url)) {
-                            await git.addRemote({ fs: state.gitFs, dir: '/repo', remote: 'origin', url: config.url });
+                            await git.addRemote({ fs: state.gitFs, dir: '/repo', remote: 'origin', url: config
+                                    .url });
                         }
                     } catch (e) {
                         await git.addRemote({ fs: state.gitFs, dir: '/repo', remote: 'origin', url: config.url });
@@ -2032,7 +2131,8 @@
                             if (stat.isDirectory()) {
                                 const subFiles = await getAllFiles(filePath);
                                 for (const sf of subFiles) {
-                                    await git.add({ fs: state.gitFs, dir: '/repo', filepath: sf.replace('/repo/', '') });
+                                    await git.add({ fs: state.gitFs, dir: '/repo', filepath: sf.replace(
+                                            '/repo/', '') });
                                 }
                             } else {
                                 await git.add({ fs: state.gitFs, dir: '/repo', filepath: file });
@@ -2045,7 +2145,8 @@
                             fs: state.gitFs,
                             dir: '/repo',
                             message: commitMessage,
-                            author: { name: config.username || 'markdown-user', email: (config.username || 'markdown-user') + '@users.noreply.github.com' },
+                            author: { name: config.username || 'markdown-user', email: (config.username ||
+                                    'markdown-user') + '@users.noreply.github.com' },
                         });
                     } catch (e) {
                         if (e.message && e.message.includes('No changes')) {
@@ -2080,7 +2181,8 @@
                         if (!req.url) req.url = config.url;
                         const res = await fetch(req.url, {
                             method: req.method || 'GET',
-                            headers: { ...req.headers, ...headers, 'Accept': 'application/vnd.github+json', 'X-Git-Agent': 'markdown-manager' },
+                            headers: { ...req.headers, ...headers, 'Accept': 'application/vnd.github+json',
+                                'X-Git-Agent': 'markdown-manager' },
                             body: req.body,
                         });
                         return res;
@@ -2184,6 +2286,10 @@
             }
 
             async function exportFilesAsZip(paths) {
+                if (typeof JSZip === 'undefined') {
+                    showToast('JSZip 库未加载，请检查网络', 'error');
+                    return;
+                }
                 const zip = new JSZip();
                 for (const path of paths) {
                     const file = state.files[path];
@@ -2472,7 +2578,8 @@
                     const before = match.context.substring(0, match.startOffset);
                     const matched = match.context.substring(match.startOffset, match.endOffset);
                     const after = match.context.substring(match.endOffset);
-                    const highlightedContext = escapeHtml(before) + `<mark>${escapeHtml(matched)}</mark>` + escapeHtml(after);
+                    const highlightedContext = escapeHtml(before) + `<mark>${escapeHtml(matched)}</mark>` +
+                        escapeHtml(after);
                     item.innerHTML = `
                         <span class="fr-line">${match.line}</span>
                         <span class="fr-context">${highlightedContext}</span>
@@ -2572,7 +2679,8 @@
                     reader.onload = (e) => {
                         const content = e.target.result;
                         const name = file.name || 'uploaded.md';
-                        const cleanName = name.endsWith('.md') || name.endsWith('.markdown') || name.endsWith('.txt') ? name : name + '.md';
+                        const cleanName = name.endsWith('.md') || name.endsWith('.markdown') || name.endsWith(
+                            '.txt') ? name : name + '.md';
                         const path = `${group}/${cleanName}`;
                         let finalPath = path;
                         let counter = 1;
@@ -2647,7 +2755,8 @@
             function bindEvents() {
                 document.getElementById('btnNewFile').addEventListener('click', () => showNewFileModal());
                 document.getElementById('btnNewGroup').addEventListener('click', () => showNewGroupModal());
-                document.getElementById('btnUpload').addEventListener('click', () => document.getElementById('fileUploadInput').click());
+                document.getElementById('btnUpload').addEventListener('click', () => document.getElementById(
+                    'fileUploadInput').click());
                 document.getElementById('btnSave').addEventListener('click', saveCurrentFile);
                 document.getElementById('btnRename').addEventListener('click', () => {
                     if (state.currentFile) showRenameModal(state.currentFile);
@@ -2693,8 +2802,10 @@
                 // 拖放
                 const dropZone = document.getElementById('dropZone');
                 let dragCounter = 0;
-                document.addEventListener('dragenter', (e) => { e.preventDefault(); dragCounter++; if (dragCounter === 1) dropZone.classList.add('active'); });
-                document.addEventListener('dragleave', (e) => { e.preventDefault(); dragCounter--; if (dragCounter === 0) dropZone.classList.remove('active'); });
+                document.addEventListener('dragenter', (e) => { e.preventDefault();
+                    dragCounter++; if (dragCounter === 1) dropZone.classList.add('active'); });
+                document.addEventListener('dragleave', (e) => { e.preventDefault();
+                    dragCounter--; if (dragCounter === 0) dropZone.classList.remove('active'); });
                 document.addEventListener('dragover', (e) => e.preventDefault());
                 document.addEventListener('drop', (e) => {
                     e.preventDefault();

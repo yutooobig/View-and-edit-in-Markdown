@@ -1400,1772 +1400,1752 @@
     </script>
 
     <script>
-        (function() {
-            'use strict';
+(function() {
+    'use strict';
 
-            // ==================== 全局状态 ====================
-            const state = {
-                files: {},
-                groups: new Set(['默认']),
-                currentFile: null,
-                currentGroup: '默认',
-                editor: null,
-                md: null,
-                hljs: null,
-                theme: localStorage.getItem('md-theme') || 'light',
-                gitConfig: null,
-                gitFs: null,
-                gitModule: null,
-                fsReady: false,
-                viewMode: 'split',
-                searchQuery: '',
-                collapsedGroups: new Set(),
-                isDirty: false,
-                lastSavedContent: '',
-                selectedPaths: new Set(),
-                sidebarCollapsed: localStorage.getItem('md-sidebar-collapsed') === 'true',
-                searchMarkers: [],
-                frMatches: [],
-                frCurrentIndex: -1,
-                frSearchTerm: '',
-                frReplaceTerm: '',
-                frModalOverlay: null,
-                gitInitializing: false,
-                gitInitRetries: 0,
-                maxGitRetries: 3,
-                gitCheckInProgress: false,
+    // ==================== 全局状态 ====================
+    const state = {
+        files: {},
+        groups: new Set(['默认']),
+        currentFile: null,
+        currentGroup: '默认',
+        editor: null,
+        md: null,
+        hljs: null,
+        theme: localStorage.getItem('md-theme') || 'light',
+        gitConfig: null,
+        gitFs: null,
+        gitModule: null,
+        fsReady: false,
+        viewMode: 'split',
+        searchQuery: '',
+        collapsedGroups: new Set(),
+        isDirty: false,
+        lastSavedContent: '',
+        selectedPaths: new Set(),
+        sidebarCollapsed: localStorage.getItem('md-sidebar-collapsed') === 'true',
+        searchMarkers: [],
+        frMatches: [],
+        frCurrentIndex: -1,
+        frSearchTerm: '',
+        frReplaceTerm: '',
+        frModalOverlay: null,
+        gitInitializing: false,
+        gitInitRetries: 0,
+        maxGitRetries: 3,
+        gitCheckInProgress: false,
+    };
+
+    // 加载 Git 配置（兼容旧格式）
+    function loadGitConfig() {
+        const raw = localStorage.getItem('md-git-config');
+        if (!raw) return null;
+        try {
+            const cfg = JSON.parse(raw);
+            // 新格式：{ owner, repo, token, branch }
+            if (cfg.owner && cfg.repo) {
+                return {
+                    owner: cfg.owner,
+                    repo: cfg.repo.replace(/\.git$/, ''),
+                    token: cfg.token || '',
+                    branch: cfg.branch || 'main',
+                };
+            }
+            // 旧格式：{ url, username, token, branch }
+            if (cfg.url) {
+                const match = cfg.url.match(/github\.com\/([^\/]+)\/([^\/\.]+)/);
+                if (match) {
+                    return {
+                        owner: match[1],
+                        repo: match[2].replace(/\.git$/, ''),
+                        token: cfg.token || '',
+                        branch: cfg.branch || 'main',
+                    };
+                }
+            }
+            return null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    // 初始化 gitConfig
+    state.gitConfig = loadGitConfig();
+
+    function saveGitConfig(config) {
+        state.gitConfig = config;
+        localStorage.setItem('md-git-config', JSON.stringify(config));
+    }
+
+    function buildGitUrl(config) {
+        return `https://github.com/${config.owner}/${config.repo}.git`;
+    }
+
+    // ==================== Toast ====================
+    function showToast(message, type = 'info') {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
+        toast.innerHTML = `${icons[type] || 'ℹ️'} ${message}`;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(100px)';
+            toast.style.transition = 'all 0.3s ease';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    // ==================== markdown-it ====================
+    function initMarkdown() {
+        state.md = new markdownit({
+            html: true,
+            linkify: true,
+            typographer: true,
+            highlight: function(str, lang) {
+                if (lang && state.hljs && state.hljs.getLanguage(lang)) {
+                    try {
+                        return `<pre class="hljs"><code>${state.hljs.highlight(str, { language: lang, ignoreIllegals: true }).value}</code></pre>`;
+                    } catch (e) {}
+                }
+                return `<pre class="hljs"><code>${state.md.utils.escapeHtml(str)}</code></pre>`;
+            }
+        });
+        const defaultFence = state.md.renderer.rules.fence;
+        state.md.renderer.rules.fence = function(tokens, idx, options, env, self) {
+            const token = tokens[idx];
+            const content = token.content;
+            const lang = token.info ? token.info.trim().split(/\s+/g)[0] : '';
+            const highlighted = state.hljs && lang && state.hljs.getLanguage(lang) ?
+                state.hljs.highlight(content, { language: lang, ignoreIllegals: true }).value :
+                state.md.utils.escapeHtml(content);
+            const langLabel = lang || 'text';
+            return `<div class="code-block-wrapper" style="position:relative;">` +
+                `<button class="copy-btn" data-code="${state.md.utils.escapeHtml(content)}" title="复制代码">📋 复制</button>` +
+                `<pre class="hljs"><code class="language-${langLabel}">${highlighted}</code></pre></div>`;
+        };
+        return state.md;
+    }
+
+    // ==================== CodeMirror ====================
+    function initEditor() {
+        const textarea = document.getElementById('codeEditor');
+        state.editor = CodeMirror.fromTextArea(textarea, {
+            mode: 'markdown',
+            theme: state.theme === 'dark' ? 'material-darker' : 'one-light',
+            lineNumbers: true,
+            lineWrapping: true,
+            autoCloseBrackets: true,
+            matchBrackets: true,
+            styleActiveLine: true,
+            tabSize: 2,
+            indentUnit: 2,
+            inputStyle: 'textarea',
+            spellcheck: false,
+            extraKeys: {
+                'Ctrl-S': function() { saveCurrentFile(); },
+                'Cmd-S': function() { saveCurrentFile(); },
+                'Ctrl-B': function() { toggleBold(); },
+                'Cmd-B': function() { toggleBold(); },
+                'Ctrl-I': function() { toggleItalic(); },
+                'Cmd-I': function() { toggleItalic(); },
+                'Ctrl-Z': function() { state.editor.undo(); },
+                'Cmd-Z': function() { state.editor.undo(); },
+                'Ctrl-Y': function() { state.editor.redo(); },
+                'Cmd-Y': function() { state.editor.redo(); },
+                'Ctrl-F': function() { openFindReplace(); },
+                'Cmd-F': function() { openFindReplace(); },
+                'Ctrl-H': function() { openFindReplace(); },
+                'Cmd-H': function() { openFindReplace(); },
+            }
+        });
+        state.editor.on('change', function() {
+            state.isDirty = true;
+            updateStatusBar();
+            debouncedPreview();
+        });
+        return state.editor;
+    }
+
+    let previewTimeout = null;
+
+    function debouncedPreview() {
+        clearTimeout(previewTimeout);
+        previewTimeout = setTimeout(() => updatePreview(), 300);
+    }
+
+    function updatePreview() {
+        const content = state.editor ? state.editor.getValue() : '';
+        const previewEl = document.getElementById('previewContent');
+        if (state.md && previewEl) {
+            previewEl.innerHTML = state.md.render(content);
+            previewEl.querySelectorAll('.copy-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const code = this.getAttribute('data-code');
+                    copyToClipboard(decodeHtmlEntities(code));
+                    this.textContent = '✅ 已复制';
+                    this.classList.add('copied');
+                    setTimeout(() => {
+                        this.textContent = '📋 复制';
+                        this.classList.remove('copied');
+                    }, 1500);
+                });
+            });
+        }
+    }
+
+    function decodeHtmlEntities(text) {
+        const textarea = document.createElement('textarea');
+        textarea.innerHTML = text;
+        return textarea.value;
+    }
+
+    async function copyToClipboard(text) {
+        try {
+            await navigator.clipboard.writeText(text);
+            showToast('已复制到剪贴板', 'success');
+        } catch (e) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            textarea.remove();
+            showToast('已复制到剪贴板', 'success');
+        }
+    }
+
+    // ==================== 文件树 ====================
+    function renderFileTree() {
+        const treeEl = document.getElementById('fileTree');
+        treeEl.innerHTML = '';
+
+        if (Object.keys(state.files).length === 0 && state.groups.size === 1 && state.groups.has('默认')) {
+            treeEl.innerHTML = `
+                <div class="empty-state">
+                    <div class="icon">📂</div>
+                    <div class="text">暂无文件</div>
+                    <div class="sub">点击上方「新建」开始</div>
+                </div>`;
+            return;
+        }
+
+        const groups = Array.from(state.groups).sort();
+
+        groups.forEach(group => {
+            const groupFiles = Object.entries(state.files)
+                .filter(([path, f]) => f.group === group)
+                .sort((a, b) => a[1].name.localeCompare(b[1].name));
+
+            const groupNode = document.createElement('div');
+            groupNode.className = 'tree-node';
+            groupNode.dataset.group = group;
+
+            const isCollapsed = state.collapsedGroups.has(group);
+            const nodeRow = document.createElement('div');
+            nodeRow.className = 'node-row' + (state.currentGroup === group && !state.currentFile ? ' active' :
+                '');
+            nodeRow.innerHTML = `
+                <span class="toggle-arrow ${isCollapsed ? '' : 'expanded'}">▶</span>
+                <span class="node-icon">📁</span>
+                <span class="node-name">${escapeHtml(group)}</span>
+                <span class="node-badge">${groupFiles.length}</span>
+            `;
+            nodeRow.addEventListener('click', () => {
+                if (state.collapsedGroups.has(group)) {
+                    state.collapsedGroups.delete(group);
+                } else {
+                    state.collapsedGroups.add(group);
+                }
+                state.currentGroup = group;
+                state.currentFile = null;
+                renderFileTree();
+                setEditorContent('');
+                updateStatusBar();
+            });
+            nodeRow.addEventListener('dblclick', () => showNewFileModal(group));
+            groupNode.appendChild(nodeRow);
+
+            if (!isCollapsed && groupFiles.length > 0) {
+                const childrenDiv = document.createElement('div');
+                childrenDiv.className = 'node-children';
+                groupFiles.forEach(([path, file]) => {
+                    const fileNode = document.createElement('div');
+                    fileNode.className = 'tree-node';
+                    const fileRow = document.createElement('div');
+                    const isSelected = state.selectedPaths.has(path);
+                    const isActive = state.currentFile === path;
+                    fileRow.className = 'node-row' + (isActive ? ' active' : '') + (isSelected ?
+                        ' selected' : '');
+
+                    let matchCount = 0;
+                    if (state.searchQuery) {
+                        const query = state.searchQuery.toLowerCase();
+                        const content = file.content.toLowerCase();
+                        let idx = content.indexOf(query);
+                        while (idx !== -1) {
+                            matchCount++;
+                            idx = content.indexOf(query, idx + query.length);
+                        }
+                    }
+                    const badgeHtml = matchCount > 0 ?
+                        `<span class="node-badge" style="background:var(--accent-light);color:var(--accent)">${matchCount}</span>` :
+                        '';
+
+                    fileRow.innerHTML = `
+                        <span class="toggle-arrow leaf">▶</span>
+                        <span class="node-icon">📄</span>
+                        <span class="node-name">${escapeHtml(file.name)}</span>
+                        ${badgeHtml}
+                    `;
+                    fileRow.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if (e.ctrlKey || e.metaKey) {
+                            if (state.selectedPaths.has(path)) {
+                                state.selectedPaths.delete(path);
+                            } else {
+                                state.selectedPaths.add(path);
+                            }
+                            renderFileTree();
+                        } else {
+                            state.selectedPaths.clear();
+                            state.selectedPaths.add(path);
+                            openFile(path);
+                        }
+                    });
+                    fileRow.addEventListener('dblclick', (e) => {
+                        e.stopPropagation();
+                        openFile(path);
+                        showRenameModal(path);
+                    });
+                    fileNode.appendChild(fileRow);
+                    childrenDiv.appendChild(fileNode);
+                });
+                groupNode.appendChild(childrenDiv);
+            }
+
+            treeEl.appendChild(groupNode);
+        });
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // ==================== 文件操作 ====================
+    function openFile(path) {
+        const file = state.files[path];
+        if (!file) return;
+        state.currentFile = path;
+        state.currentGroup = file.group;
+        state.lastSavedContent = file.content;
+        setEditorContent(file.content);
+        state.isDirty = false;
+        if (!state.selectedPaths.has(path)) {
+            state.selectedPaths.clear();
+            state.selectedPaths.add(path);
+        }
+        renderFileTree();
+        updateStatusBar();
+        showToast(`已打开: ${file.name}`, 'info');
+        if (state.searchQuery) {
+            highlightSearchInEditor(state.searchQuery);
+        }
+    }
+
+    function setEditorContent(content) {
+        if (state.editor) {
+            state.editor.setValue(content || '');
+            state.editor.clearHistory();
+        }
+        updatePreview();
+        clearSearchHighlights();
+    }
+
+    function saveCurrentFile() {
+        if (!state.currentFile) {
+            showToast('请先选择或创建一个文件', 'error');
+            return;
+        }
+        const file = state.files[state.currentFile];
+        const content = state.editor.getValue();
+        file.content = content;
+        file.updatedAt = new Date().toISOString();
+        state.lastSavedContent = content;
+        state.isDirty = false;
+        updateStatusBar();
+        showToast(`已保存: ${file.name}`, 'success');
+        syncToGitFs(state.currentFile, content);
+    }
+
+    function createFile(group, name) {
+        const cleanName = name.endsWith('.md') ? name : name + '.md';
+        const path = `${group}/${cleanName}`;
+        if (state.files[path]) {
+            showToast('同名文件已存在', 'error');
+            return false;
+        }
+        if (!state.groups.has(group)) {
+            state.groups.add(group);
+        }
+        state.files[path] = {
+            name: cleanName,
+            group: group,
+            content: '# ' + cleanName.replace('.md', '') + '\n\n开始编写内容...\n',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+        };
+        state.currentFile = path;
+        state.currentGroup = group;
+        state.lastSavedContent = state.files[path].content;
+        setEditorContent(state.files[path].content);
+        state.isDirty = false;
+        state.selectedPaths.clear();
+        state.selectedPaths.add(path);
+        renderFileTree();
+        updateStatusBar();
+        showToast(`已创建: ${cleanName}`, 'success');
+        syncToGitFs(path, state.files[path].content);
+        return true;
+    }
+
+    function deleteFile(path) {
+        if (!path || !state.files[path]) return;
+        const file = state.files[path];
+        if (!confirm(`确定删除文件「${file.name}」吗？此操作不可撤销。`)) return;
+        delete state.files[path];
+        if (state.currentFile === path) {
+            state.currentFile = null;
+            setEditorContent('');
+        }
+        state.selectedPaths.delete(path);
+        removeFromGitFs(path);
+        renderFileTree();
+        updateStatusBar();
+        showToast(`已删除: ${file.name}`, 'info');
+    }
+
+    function renameFile(path, newName) {
+        const file = state.files[path];
+        if (!file) return;
+        const cleanName = newName.endsWith('.md') ? newName : newName + '.md';
+        const newPath = `${file.group}/${cleanName}`;
+        if (newPath === path) return;
+        if (state.files[newPath]) {
+            showToast('同名文件已存在', 'error');
+            return;
+        }
+        removeFromGitFs(path);
+        file.name = cleanName;
+        file.updatedAt = new Date().toISOString();
+        state.files[newPath] = file;
+        delete state.files[path];
+        if (state.currentFile === path) {
+            state.currentFile = newPath;
+        }
+        if (state.selectedPaths.has(path)) {
+            state.selectedPaths.delete(path);
+            state.selectedPaths.add(newPath);
+        }
+        syncToGitFs(newPath, file.content);
+        renderFileTree();
+        updateStatusBar();
+        showToast(`已重命名为: ${cleanName}`, 'success');
+    }
+
+    function moveFileToGroup(path, newGroup) {
+        const file = state.files[path];
+        if (!file || file.group === newGroup) return;
+        if (!state.groups.has(newGroup)) {
+            state.groups.add(newGroup);
+        }
+        const newPath = `${newGroup}/${file.name}`;
+        if (state.files[newPath]) {
+            showToast('目标分组有同名文件', 'error');
+            return;
+        }
+        removeFromGitFs(path);
+        file.group = newGroup;
+        file.updatedAt = new Date().toISOString();
+        state.files[newPath] = file;
+        delete state.files[path];
+        if (state.currentFile === path) {
+            state.currentFile = newPath;
+            state.currentGroup = newGroup;
+        }
+        if (state.selectedPaths.has(path)) {
+            state.selectedPaths.delete(path);
+            state.selectedPaths.add(newPath);
+        }
+        syncToGitFs(newPath, file.content);
+        renderFileTree();
+        updateStatusBar();
+        showToast(`已移动到: ${newGroup}`, 'success');
+    }
+
+    function createGroup(name) {
+        if (!name.trim()) return;
+        if (state.groups.has(name)) {
+            showToast('分组已存在', 'error');
+            return;
+        }
+        state.groups.add(name);
+        state.collapsedGroups.delete(name);
+        renderFileTree();
+        showToast(`已创建分组: ${name}`, 'success');
+    }
+
+    function deleteGroup(name) {
+        if (!state.groups.has(name)) return;
+        const filesInGroup = Object.entries(state.files).filter(([p, f]) => f.group === name);
+        if (filesInGroup.length > 0) {
+            if (!confirm(`分组「${name}」中有 ${filesInGroup.length} 个文件，确定删除并移动文件到「默认」？`))
+                return;
+            filesInGroup.forEach(([path, file]) => {
+                const newPath = `默认/${file.name}`;
+                let finalPath = newPath;
+                let counter = 1;
+                while (state.files[finalPath]) {
+                    const ext = file.name.includes('.') ? '.' + file.name.split('.').pop() : '';
+                    const baseName = file.name.replace(ext, '');
+                    finalPath = `默认/${baseName}_${counter}${ext}`;
+                    counter++;
+                }
+                file.group = '默认';
+                file.name = finalPath.split('/').pop();
+                file.updatedAt = new Date().toISOString();
+                state.files[finalPath] = file;
+                delete state.files[path];
+                if (state.currentFile === path) {
+                    state.currentFile = finalPath;
+                    state.currentGroup = '默认';
+                }
+                if (state.selectedPaths.has(path)) {
+                    state.selectedPaths.delete(path);
+                    state.selectedPaths.add(finalPath);
+                }
+                syncToGitFs(finalPath, file.content);
+                removeFromGitFs(path);
+            });
+        }
+        state.groups.delete(name);
+        state.collapsedGroups.delete(name);
+        if (state.currentGroup === name) {
+            state.currentGroup = '默认';
+            state.currentFile = null;
+            setEditorContent('');
+        }
+        renderFileTree();
+        updateStatusBar();
+        showToast(`已删除分组: ${name}`, 'info');
+    }
+
+    // ==================== 模态框 ====================
+    function showModal(html, onOk) {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal">
+                ${html}
+                <div class="modal-actions">
+                    <button class="btn" id="modalCancel">取消</button>
+                    <button class="btn primary" id="modalOk">确定</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        overlay.querySelector('#modalCancel').addEventListener('click', () => overlay.remove());
+        overlay.querySelector('#modalOk').addEventListener('click', () => {
+            const result = onOk(overlay);
+            if (result !== false) overlay.remove();
+        });
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+        return overlay;
+    }
+
+    function showNewFileModal(prefillGroup) {
+        const group = prefillGroup || state.currentGroup || '默认';
+        const groups = Array.from(state.groups);
+        showModal(`
+            <h3>📄 新建 Markdown 文件</h3>
+            <div class="form-group">
+                <label>文件名</label>
+                <input type="text" id="modalFileName" placeholder="例如: 我的笔记.md" value="">
+            </div>
+            <div class="form-group">
+                <label>分组</label>
+                <select id="modalFileGroup">
+                    ${groups.map(g => `<option value="${escapeHtml(g)}" ${g === group ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}
+                    <option value="__new__">➕ 新建分组...</option>
+                </select>
+            </div>
+        `, (overlay) => {
+            const name = overlay.querySelector('#modalFileName').value.trim();
+            const groupSelect = overlay.querySelector('#modalFileGroup');
+            let groupName = groupSelect.value;
+            if (groupName === '__new__') {
+                groupName = prompt('请输入新分组名称:');
+                if (!groupName || !groupName.trim()) return false;
+                state.groups.add(groupName);
+            }
+            if (!name) {
+                showToast('请输入文件名', 'error');
+                return false;
+            }
+            return createFile(groupName, name) !== false;
+        });
+        setTimeout(() => {
+            const input = overlay.querySelector('#modalFileName');
+            if (input) input.focus();
+        }, 100);
+    }
+
+    function showNewGroupModal() {
+        showModal(`
+            <h3>📁 新建分组</h3>
+            <div class="form-group">
+                <label>分组名称</label>
+                <input type="text" id="modalGroupName" placeholder="例如: 工作笔记">
+            </div>
+        `, (overlay) => {
+            const name = overlay.querySelector('#modalGroupName').value.trim();
+            if (!name) {
+                showToast('请输入分组名称', 'error');
+                return false;
+            }
+            createGroup(name);
+            return true;
+        });
+    }
+
+    function showRenameModal(path) {
+        const file = state.files[path];
+        if (!file) return;
+        showModal(`
+            <h3>✏️ 重命名文件</h3>
+            <div class="form-group">
+                <label>新文件名</label>
+                <input type="text" id="modalRenameInput" value="${escapeHtml(file.name)}">
+            </div>
+            <div class="form-group">
+                <label>移动到分组</label>
+                <select id="modalMoveGroup">
+                    ${Array.from(state.groups).map(g => `<option value="${escapeHtml(g)}" ${g === file.group ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}
+                </select>
+            </div>
+        `, (overlay) => {
+            const newName = overlay.querySelector('#modalRenameInput').value.trim();
+            const newGroup = overlay.querySelector('#modalMoveGroup').value;
+            if (!newName) {
+                showToast('请输入文件名', 'error');
+                return false;
+            }
+            if (newGroup !== file.group) {
+                moveFileToGroup(path, newGroup);
+            }
+            if (newName !== file.name) {
+                renameFile(path, newName);
+            }
+            return true;
+        });
+    }
+
+    // ==================== GitHub 连接检查 ====================
+    async function checkGitHubConnection(owner, repo, token) {
+        if (!owner || !repo) {
+            return { success: false, message: '请填写用户名和仓库名称' };
+        }
+        if (!token) {
+            return { success: false, message: '请填写 Personal Access Token' };
+        }
+
+        const headers = {
+            'Accept': 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28',
+        };
+        if (token) {
+            headers['Authorization'] = 'Bearer ' + token;
+        }
+
+        try {
+            const repoRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers });
+            if (repoRes.status === 401) {
+                return { success: false, message: 'Token 无效或已过期，请检查后重试' };
+            }
+            if (repoRes.status === 404) {
+                return { success: false, message: `仓库「${owner}/${repo}」不存在或无权访问` };
+            }
+            if (repoRes.status === 403) {
+                const rateData = await repoRes.json().catch(() => ({}));
+                if (rateData.message && rateData.message.includes('rate limit')) {
+                    return { success: false, message: 'API 速率限制已用完，请稍后重试' };
+                }
+                return { success: false, message: '访问被拒绝，请检查 Token 权限' };
+            }
+            if (!repoRes.ok) {
+                return { success: false, message: `仓库检查失败 (HTTP ${repoRes.status})` };
+            }
+            const repoData = await repoRes.json();
+
+            const scopes = repoRes.headers.get('X-OAuth-Scopes') || '';
+            const hasRepoScope = scopes.split(',').map(s => s.trim()).some(s => s === 'repo' || s === 'public_repo');
+            const isPrivate = repoData.private === true;
+            const scopeWarning = isPrivate && !scopes.includes('repo') ?
+                '（⚠️ 私有仓库需要 token 具有 repo 权限）' : '';
+
+            const defaultBranch = repoData.default_branch || 'main';
+
+            return {
+                success: true,
+                message: `✅ 连接成功！仓库「${repoData.full_name}」可访问。默认分支: ${defaultBranch}${scopeWarning}`,
+                repoData: repoData,
+                defaultBranch: defaultBranch,
+                scopes: scopes,
             };
+        } catch (e) {
+            if (e.message && e.message.includes('Failed to fetch')) {
+                return { success: false, message: '网络连接失败，请检查网络后重试' };
+            }
+            return { success: false, message: '检查失败: ' + (e.message || '未知错误') };
+        }
+    }
 
-            // 加载 Git 配置（兼容旧格式）
-            function loadGitConfig() {
-                const raw = localStorage.getItem('md-git-config');
-                if (!raw) return null;
-                try {
-                    const cfg = JSON.parse(raw);
-                    // 新格式：{ owner, repo, token, branch }
-                    if (cfg.owner && cfg.repo) {
-                        return {
-                            owner: cfg.owner,
-                            repo: cfg.repo.replace(/\.git$/, ''),
-                            token: cfg.token || '',
-                            branch: cfg.branch || 'main',
+    // ==================== Git 配置模态框 ====================
+    function showGitConfigModal() {
+        const config = state.gitConfig || { owner: '', repo: '', token: '', branch: 'main' };
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal" style="width:560px;">
+                <h3>⚙️ GitHub 仓库配置</h3>
+                <p style="font-size:12px;color:var(--text-light);margin-bottom:12px;">
+                    <i class="fas fa-info-circle"></i> 填写你的 GitHub 用户名、仓库名称和 Token。
+                    Token 需要 <code>repo</code> 权限（私有仓库）或 <code>public_repo</code> 权限（公共仓库）。
+                </p>
+                <div class="form-group">
+                    <label><i class="fab fa-github"></i> GitHub 用户名 (owner)</label>
+                    <input type="text" id="gitOwner" placeholder="例如: octocat" value="${escapeHtml(config.owner || '')}">
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-book"></i> 仓库名称 (repo)</label>
+                    <input type="text" id="gitRepo" placeholder="例如: my-notes" value="${escapeHtml(config.repo || '')}">
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-key"></i> Personal Access Token</label>
+                    <input type="password" id="gitToken" placeholder="ghp_..." value="${escapeHtml(config.token || '')}">
+                    <small style="color:var(--text-light);font-size:11px;">⚠️ Token 仅保存在本地浏览器中</small>
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-code-branch"></i> 分支</label>
+                    <input type="text" id="gitBranch" placeholder="main" value="${escapeHtml(config.branch || 'main')}">
+                </div>
+                <button class="btn btn-test-connection" id="btnTestGit" type="button">
+                    <i class="fas fa-plug"></i> 检查连接
+                </button>
+                <div id="gitCheckResult" class="git-check-result" style="display:none;"></div>
+                <div class="modal-actions">
+                    <button class="btn" id="modalCancel">取消</button>
+                    <button class="btn primary" id="modalOk">保存配置</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        const resultDiv = overlay.querySelector('#gitCheckResult');
+        const testBtn = overlay.querySelector('#btnTestGit');
+
+        overlay.querySelector('#modalCancel').addEventListener('click', () => overlay.remove());
+        overlay.querySelector('#modalOk').addEventListener('click', () => {
+            const owner = overlay.querySelector('#gitOwner').value.trim();
+            const repo = overlay.querySelector('#gitRepo').value.trim();
+            const token = overlay.querySelector('#gitToken').value.trim();
+            const branch = overlay.querySelector('#gitBranch').value.trim() || 'main';
+            if (!owner) {
+                showToast('请输入 GitHub 用户名', 'error');
+                return;
+            }
+            if (!repo) {
+                showToast('请输入仓库名称', 'error');
+                return;
+            }
+            const newConfig = { owner, repo: repo.replace(/\.git$/, ''), token, branch };
+            saveGitConfig(newConfig);
+            updateStatusBar();
+            showToast('Git 配置已保存', 'success');
+            overlay.remove();
+        });
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+
+        testBtn.addEventListener('click', async () => {
+            if (state.gitCheckInProgress) return;
+            const owner = overlay.querySelector('#gitOwner').value.trim();
+            const repo = overlay.querySelector('#gitRepo').value.trim().replace(/\.git$/, '');
+            const token = overlay.querySelector('#gitToken').value.trim();
+
+            state.gitCheckInProgress = true;
+            testBtn.disabled = true;
+            testBtn.innerHTML = '<span class="spinner"></span> 正在检查...';
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'git-check-result pending';
+            resultDiv.innerHTML = '<span class="icon">⏳</span> 正在检查 GitHub 连接...';
+
+            const result = await checkGitHubConnection(owner, repo, token);
+
+            if (result.success) {
+                resultDiv.className = 'git-check-result success';
+                resultDiv.innerHTML = `<span class="icon">✅</span> ${result.message}`;
+                if (result.defaultBranch) {
+                    const branchInput = overlay.querySelector('#gitBranch');
+                    if (branchInput && !branchInput.value.trim()) {
+                        branchInput.value = result.defaultBranch;
+                    }
+                }
+            } else {
+                resultDiv.className = 'git-check-result error';
+                resultDiv.innerHTML = `<span class="icon">❌</span> ${result.message}`;
+            }
+
+            state.gitCheckInProgress = false;
+            testBtn.disabled = false;
+            testBtn.innerHTML = '<i class="fas fa-plug"></i> 检查连接';
+        });
+
+        setTimeout(() => {
+            const ownerInput = overlay.querySelector('#gitOwner');
+            if (ownerInput) ownerInput.focus();
+        }, 100);
+    }
+
+    // ==================== Git 文件系统 ====================
+    async function initGitFs() {
+        if (state.gitInitializing) return;
+        state.gitInitializing = true;
+        updateGitStatus('loading', '⏳ 加载中...');
+
+        try {
+            const fsModule = await import('https://esm.sh/@isomorphic-git/lightning-fs@4.6.0?bundle');
+            const gitModule = await import('https://esm.sh/isomorphic-git@1.25.10?bundle');
+
+            state.gitFs = new fsModule.default('markdown-fs', {
+                wipe: false,
+                store: 'markdown-fs-store'
+            });
+            state.gitModule = gitModule;
+            state.fsReady = true;
+
+            try {
+                await state.gitFs.promises.mkdir('/repo', { recursive: true });
+            } catch (e) {}
+
+            await reloadFromGitFs();
+
+            updateGitStatus('ready', '✅ Git 就绪');
+            showToast('Git 文件系统已就绪', 'success');
+            state.gitInitRetries = 0;
+            return true;
+        } catch (e) {
+            console.error('Git FS 初始化失败:', e);
+            state.fsReady = false;
+            state.gitModule = null;
+            state.gitFs = null;
+            updateGitStatus('error', '❌ Git 未就绪');
+
+            if (state.gitInitRetries < state.maxGitRetries) {
+                state.gitInitRetries++;
+                showToast(`Git 初始化失败 (${state.gitInitRetries}/${state.maxGitRetries})，正在重试...`, 'warning');
+                await new Promise(r => setTimeout(r, 2000));
+                state.gitInitializing = false;
+                return initGitFs();
+            }
+
+            showToast('Git 文件系统初始化失败，请检查网络后刷新重试', 'error');
+            return false;
+        } finally {
+            state.gitInitializing = false;
+        }
+    }
+
+    function updateGitStatus(status, label) {
+        const statusEl = document.getElementById('statusGit');
+        if (!statusEl) return;
+        const className = status === 'ready' ? 'git-status ready' :
+            status === 'error' ? 'git-status error' :
+            status === 'loading' ? 'git-status loading' : 'git-status';
+        statusEl.innerHTML = `<span class="${className}">${label}</span>`;
+    }
+
+    async function syncToGitFs(path, content) {
+        if (!state.fsReady || !state.gitFs) return;
+        try {
+            const fsPath = '/repo/' + path.replace(/^\/+/, '');
+            const dir = fsPath.substring(0, fsPath.lastIndexOf('/'));
+            if (dir) {
+                await state.gitFs.promises.mkdir(dir, { recursive: true });
+            }
+            await state.gitFs.promises.writeFile(fsPath, content, 'utf8');
+        } catch (e) {
+            console.warn('同步到 Git FS 失败:', e);
+        }
+    }
+
+    async function removeFromGitFs(path) {
+        if (!state.fsReady || !state.gitFs) return;
+        try {
+            const fsPath = '/repo/' + path.replace(/^\/+/, '');
+            await state.gitFs.promises.unlink(fsPath);
+        } catch (e) {
+            console.warn('从 Git FS 删除失败:', e);
+        }
+    }
+
+    async function syncAllToGitFs() {
+        if (!state.fsReady || !state.gitFs) return;
+        for (const [path, file] of Object.entries(state.files)) {
+            await syncToGitFs(path, file.content);
+        }
+    }
+
+    async function getAllFiles(dir) {
+        const results = [];
+        async function walk(d) {
+            const entries = await state.gitFs.promises.readdir(d);
+            for (const entry of entries) {
+                if (entry === '.git') continue;
+                const fullPath = d + '/' + entry;
+                const stat = await state.gitFs.promises.stat(fullPath);
+                if (stat.isDirectory()) {
+                    await walk(fullPath);
+                } else {
+                    results.push(fullPath);
+                }
+            }
+        }
+        await walk(dir);
+        return results;
+    }
+
+    async function reloadFromGitFs() {
+        if (!state.fsReady || !state.gitFs) return;
+        try {
+            const files = await getAllFiles('/repo');
+            const newFiles = {};
+            for (const filePath of files) {
+                const relativePath = filePath.replace('/repo/', '');
+                const parts = relativePath.split('/');
+                if (parts.length === 2) {
+                    const group = parts[0];
+                    const name = parts[1];
+                    if (name.endsWith('.md') || name.endsWith('.markdown') || name.endsWith('.txt')) {
+                        const content = await state.gitFs.promises.readFile(filePath, 'utf8');
+                        if (!state.groups.has(group)) {
+                            state.groups.add(group);
+                        }
+                        newFiles[relativePath] = {
+                            name: name,
+                            group: group,
+                            content: content,
+                            createdAt: state.files[relativePath]?.createdAt || new Date().toISOString(),
+                            updatedAt: new Date().toISOString(),
                         };
                     }
-                    // 旧格式：{ url, username, token, branch }
-                    if (cfg.url) {
-                        const match = cfg.url.match(/github\.com\/([^\/]+)\/([^\/\.]+)/);
-                        if (match) {
-                            return {
-                                owner: match[1],
-                                repo: match[2].replace(/\.git$/, ''),
-                                token: cfg.token || '',
-                                branch: cfg.branch || 'main',
-                            };
-                        }
-                    }
-                    return null;
-                } catch (e) {
-                    return null;
                 }
             }
-
-            // 初始化 gitConfig
-            state.gitConfig = loadGitConfig();
-
-            function saveGitConfig(config) {
-                state.gitConfig = config;
-                localStorage.setItem('md-git-config', JSON.stringify(config));
+            for (const [path, file] of Object.entries(newFiles)) {
+                if (!state.files[path]) {
+                    state.files[path] = file;
+                } else if (state.files[path].content !== file.content) {
+                    showToast(`文件 ${file.name} 有冲突，保留本地版本`, 'warning');
+                }
             }
-
-            function buildGitUrl(config) {
-                return `https://github.com/${config.owner}/${config.repo}.git`;
+            renderFileTree();
+            if (state.currentFile && state.files[state.currentFile]) {
+                setEditorContent(state.files[state.currentFile].content);
+                state.isDirty = false;
             }
+            updateStatusBar();
+        } catch (e) {
+            console.warn('重新加载失败:', e);
+        }
+    }
 
-            // ==================== Toast ====================
-            function showToast(message, type = 'info') {
-                const container = document.getElementById('toastContainer');
-                const toast = document.createElement('div');
-                toast.className = `toast ${type}`;
-                const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
-                toast.innerHTML = `${icons[type] || 'ℹ️'} ${message}`;
-                container.appendChild(toast);
-                setTimeout(() => {
-                    toast.style.opacity = '0';
-                    toast.style.transform = 'translateX(100px)';
-                    toast.style.transition = 'all 0.3s ease';
-                    setTimeout(() => toast.remove(), 300);
-                }, 3000);
-            }
-
-            // ==================== markdown-it ====================
-            function initMarkdown() {
-                state.md = new markdownit({
-                    html: true,
-                    linkify: true,
-                    typographer: true,
-                    highlight: function(str, lang) {
-                        if (lang && state.hljs && state.hljs.getLanguage(lang)) {
-                            try {
-                                return `<pre class="hljs"><code>${state.hljs.highlight(str, { language: lang, ignoreIllegals: true }).value}</code></pre>`;
-                            } catch (e) {}
-                        }
-                        return `<pre class="hljs"><code>${state.md.utils.escapeHtml(str)}</code></pre>`;
-                    }
+    // ==================== 改进的 Git HTTP 客户端 ====================
+    function createHttpClient(config) {
+        return {
+            request: async (req) => {
+                const headers = { ...req.headers };
+                const res = await fetch(req.url, {
+                    method: req.method || 'GET',
+                    headers: headers,
+                    body: req.body,
                 });
-                const defaultFence = state.md.renderer.rules.fence;
-                state.md.renderer.rules.fence = function(tokens, idx, options, env, self) {
-                    const token = tokens[idx];
-                    const content = token.content;
-                    const lang = token.info ? token.info.trim().split(/\s+/g)[0] : '';
-                    const highlighted = state.hljs && lang && state.hljs.getLanguage(lang) ?
-                        state.hljs.highlight(content, { language: lang, ignoreIllegals: true }).value :
-                        state.md.utils.escapeHtml(content);
-                    const langLabel = lang || 'text';
-                    return `<div class="code-block-wrapper" style="position:relative;">` +
-                        `<button class="copy-btn" data-code="${state.md.utils.escapeHtml(content)}" title="复制代码">📋 复制</button>` +
-                        `<pre class="hljs"><code class="language-${langLabel}">${highlighted}</code></pre></div>`;
-                };
-                return state.md;
+                return res;
+            }
+        };
+    }
+
+    // ==================== Git Pull ====================
+    async function gitPull() {
+        if (!state.fsReady || !state.gitModule) {
+            showToast('Git 文件系统未就绪，请刷新页面重试', 'error');
+            return;
+        }
+        if (!state.gitConfig || !state.gitConfig.owner || !state.gitConfig.repo) {
+            showToast('请先在 Git 配置中填写用户名和仓库名称', 'error');
+            showGitConfigModal();
+            return;
+        }
+        const config = state.gitConfig;
+        const gitUrl = buildGitUrl(config);
+        showToast('正在拉取远程仓库...', 'info');
+        try {
+            await syncAllToGitFs();
+
+            const git = state.gitModule;
+            try {
+                await git.getConfig({ fs: state.gitFs, dir: '/repo', path: 'user.name' });
+            } catch (e) {
+                await git.init({ fs: state.gitFs, dir: '/repo', defaultBranch: config.branch || 'main' });
+                await git.setConfig({ fs: state.gitFs, dir: '/repo', path: 'user.name', value: config
+                        .owner || 'markdown-user' });
+                await git.setConfig({ fs: state.gitFs, dir: '/repo', path: 'user.email', value: (config
+                        .owner || 'markdown-user') + '@users.noreply.github.com' });
             }
 
-            // ==================== CodeMirror ====================
-            function initEditor() {
-                const textarea = document.getElementById('codeEditor');
-                state.editor = CodeMirror.fromTextArea(textarea, {
-                    mode: 'markdown',
-                    theme: state.theme === 'dark' ? 'material-darker' : 'one-light',
-                    lineNumbers: true,
-                    lineWrapping: true,
-                    autoCloseBrackets: true,
-                    matchBrackets: true,
-                    styleActiveLine: true,
-                    tabSize: 2,
-                    indentUnit: 2,
-                    inputStyle: 'textarea',
-                    spellcheck: false,
-                    extraKeys: {
-                        'Ctrl-S': function() { saveCurrentFile(); },
-                        'Cmd-S': function() { saveCurrentFile(); },
-                        'Ctrl-B': function() { toggleBold(); },
-                        'Cmd-B': function() { toggleBold(); },
-                        'Ctrl-I': function() { toggleItalic(); },
-                        'Cmd-I': function() { toggleItalic(); },
-                        'Ctrl-Z': function() { state.editor.undo(); },
-                        'Cmd-Z': function() { state.editor.undo(); },
-                        'Ctrl-Y': function() { state.editor.redo(); },
-                        'Cmd-Y': function() { state.editor.redo(); },
-                        'Ctrl-F': function() { openFindReplace(); },
-                        'Cmd-F': function() { openFindReplace(); },
-                        'Ctrl-H': function() { openFindReplace(); },
-                        'Cmd-H': function() { openFindReplace(); },
-                    }
-                });
-                state.editor.on('change', function() {
-                    state.isDirty = true;
-                    updateStatusBar();
-                    debouncedPreview();
-                });
-                return state.editor;
-            }
-
-            let previewTimeout = null;
-
-            function debouncedPreview() {
-                clearTimeout(previewTimeout);
-                previewTimeout = setTimeout(() => updatePreview(), 300);
-            }
-
-            function updatePreview() {
-                const content = state.editor ? state.editor.getValue() : '';
-                const previewEl = document.getElementById('previewContent');
-                if (state.md && previewEl) {
-                    previewEl.innerHTML = state.md.render(content);
-                    previewEl.querySelectorAll('.copy-btn').forEach(btn => {
-                        btn.addEventListener('click', function(e) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const code = this.getAttribute('data-code');
-                            copyToClipboard(decodeHtmlEntities(code));
-                            this.textContent = '✅ 已复制';
-                            this.classList.add('copied');
-                            setTimeout(() => {
-                                this.textContent = '📋 复制';
-                                this.classList.remove('copied');
-                            }, 1500);
-                        });
+            try {
+                const remotes = await git.listRemotes({ fs: state.gitFs, dir: '/repo' });
+                if (!remotes.some(r => r.url === gitUrl)) {
+                    await git.addRemote({ 
+                        fs: state.gitFs, 
+                        dir: '/repo', 
+                        remote: 'origin', 
+                        url: gitUrl,
+                        force: true
                     });
                 }
-            }
-
-            function decodeHtmlEntities(text) {
-                const textarea = document.createElement('textarea');
-                textarea.innerHTML = text;
-                return textarea.value;
-            }
-
-            async function copyToClipboard(text) {
-                try {
-                    await navigator.clipboard.writeText(text);
-                    showToast('已复制到剪贴板', 'success');
-                } catch (e) {
-                    const textarea = document.createElement('textarea');
-                    textarea.value = text;
-                    textarea.style.position = 'fixed';
-                    textarea.style.opacity = '0';
-                    document.body.appendChild(textarea);
-                    textarea.select();
-                    document.execCommand('copy');
-                    textarea.remove();
-                    showToast('已复制到剪贴板', 'success');
-                }
-            }
-
-            // ==================== 文件树 ====================
-            function renderFileTree() {
-                const treeEl = document.getElementById('fileTree');
-                treeEl.innerHTML = '';
-
-                if (Object.keys(state.files).length === 0 && state.groups.size === 1 && state.groups.has('默认')) {
-                    treeEl.innerHTML = `
-                        <div class="empty-state">
-                            <div class="icon">📂</div>
-                            <div class="text">暂无文件</div>
-                            <div class="sub">点击上方「新建」开始</div>
-                        </div>`;
-                    return;
-                }
-
-                const groups = Array.from(state.groups).sort();
-
-                groups.forEach(group => {
-                    const groupFiles = Object.entries(state.files)
-                        .filter(([path, f]) => f.group === group)
-                        .sort((a, b) => a[1].name.localeCompare(b[1].name));
-
-                    const groupNode = document.createElement('div');
-                    groupNode.className = 'tree-node';
-                    groupNode.dataset.group = group;
-
-                    const isCollapsed = state.collapsedGroups.has(group);
-                    const nodeRow = document.createElement('div');
-                    nodeRow.className = 'node-row' + (state.currentGroup === group && !state.currentFile ? ' active' :
-                        '');
-                    nodeRow.innerHTML = `
-                        <span class="toggle-arrow ${isCollapsed ? '' : 'expanded'}">▶</span>
-                        <span class="node-icon">📁</span>
-                        <span class="node-name">${escapeHtml(group)}</span>
-                        <span class="node-badge">${groupFiles.length}</span>
-                    `;
-                    nodeRow.addEventListener('click', () => {
-                        if (state.collapsedGroups.has(group)) {
-                            state.collapsedGroups.delete(group);
-                        } else {
-                            state.collapsedGroups.add(group);
-                        }
-                        state.currentGroup = group;
-                        state.currentFile = null;
-                        renderFileTree();
-                        setEditorContent('');
-                        updateStatusBar();
-                    });
-                    nodeRow.addEventListener('dblclick', () => showNewFileModal(group));
-                    groupNode.appendChild(nodeRow);
-
-                    if (!isCollapsed && groupFiles.length > 0) {
-                        const childrenDiv = document.createElement('div');
-                        childrenDiv.className = 'node-children';
-                        groupFiles.forEach(([path, file]) => {
-                            const fileNode = document.createElement('div');
-                            fileNode.className = 'tree-node';
-                            const fileRow = document.createElement('div');
-                            const isSelected = state.selectedPaths.has(path);
-                            const isActive = state.currentFile === path;
-                            fileRow.className = 'node-row' + (isActive ? ' active' : '') + (isSelected ?
-                                ' selected' : '');
-
-                            let matchCount = 0;
-                            if (state.searchQuery) {
-                                const query = state.searchQuery.toLowerCase();
-                                const content = file.content.toLowerCase();
-                                let idx = content.indexOf(query);
-                                while (idx !== -1) {
-                                    matchCount++;
-                                    idx = content.indexOf(query, idx + query.length);
-                                }
-                            }
-                            const badgeHtml = matchCount > 0 ?
-                                `<span class="node-badge" style="background:var(--accent-light);color:var(--accent)">${matchCount}</span>` :
-                                '';
-
-                            fileRow.innerHTML = `
-                                <span class="toggle-arrow leaf">▶</span>
-                                <span class="node-icon">📄</span>
-                                <span class="node-name">${escapeHtml(file.name)}</span>
-                                ${badgeHtml}
-                            `;
-                            fileRow.addEventListener('click', (e) => {
-                                e.stopPropagation();
-                                if (e.ctrlKey || e.metaKey) {
-                                    if (state.selectedPaths.has(path)) {
-                                        state.selectedPaths.delete(path);
-                                    } else {
-                                        state.selectedPaths.add(path);
-                                    }
-                                    renderFileTree();
-                                } else {
-                                    state.selectedPaths.clear();
-                                    state.selectedPaths.add(path);
-                                    openFile(path);
-                                }
-                            });
-                            fileRow.addEventListener('dblclick', (e) => {
-                                e.stopPropagation();
-                                openFile(path);
-                                showRenameModal(path);
-                            });
-                            fileNode.appendChild(fileRow);
-                            childrenDiv.appendChild(fileNode);
-                        });
-                        groupNode.appendChild(childrenDiv);
-                    }
-
-                    treeEl.appendChild(groupNode);
+            } catch (e) {
+                await git.addRemote({ 
+                    fs: state.gitFs, 
+                    dir: '/repo', 
+                    remote: 'origin', 
+                    url: gitUrl,
+                    force: true
                 });
             }
 
-            function escapeHtml(text) {
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
+            const result = await git.pull({
+                fs: state.gitFs,
+                http: createHttpClient(config),
+                dir: '/repo',
+                url: gitUrl,
+                ref: config.branch || 'main',
+                singleBranch: true,
+                corsProxy: 'https://cors.isomorphic-git.org',
+                onAuth: () => ({ username: config.owner, password: config.token }),
+                author: { name: config.owner || 'user', email: (config.owner || 'user') +
+                        '@users.noreply.github.com' },
+            });
+            showToast(`拉取成功！${result.files && result.files.length ? '更新了 ' + result.files.length + ' 个文件' : '已是最新'}`, 'success');
+            await reloadFromGitFs();
+        } catch (e) {
+            console.error('Pull 失败:', e);
+            let errMsg = e.message || '未知错误';
+            if (errMsg.includes('Cannot read properties of undefined') || errMsg.includes('Failed to fetch')) {
+                errMsg = '网络连接失败，请检查网络后重试';
+            }
+            showToast('拉取失败: ' + errMsg, 'error');
+        }
+    }
+
+    // ==================== Git Push ====================
+    async function gitPush() {
+        if (!state.fsReady || !state.gitModule) {
+            showToast('Git 文件系统未就绪，请刷新页面重试', 'error');
+            return;
+        }
+        if (!state.gitConfig || !state.gitConfig.owner || !state.gitConfig.repo) {
+            showToast('请先在 Git 配置中填写用户名和仓库名称', 'error');
+            showGitConfigModal();
+            return;
+        }
+        const config = state.gitConfig;
+        if (state.currentFile && state.isDirty) {
+            saveCurrentFile();
+        }
+        await syncAllToGitFs();
+        showToast('正在提交并推送...', 'info');
+        try {
+            const git = state.gitModule;
+            const gitUrl = buildGitUrl(config);
+
+            // 确保仓库已初始化
+            try {
+                await git.getConfig({ fs: state.gitFs, dir: '/repo', path: 'user.name' });
+            } catch (e) {
+                await git.init({ fs: state.gitFs, dir: '/repo', defaultBranch: config.branch || 'main' });
+                await git.setConfig({ fs: state.gitFs, dir: '/repo', path: 'user.name', value: config
+                        .owner || 'markdown-user' });
+                await git.setConfig({ fs: state.gitFs, dir: '/repo', path: 'user.email', value: (config
+                        .owner || 'markdown-user') + '@users.noreply.github.com' });
             }
 
-            // ==================== 文件操作 ====================
-            function openFile(path) {
-                const file = state.files[path];
-                if (!file) return;
-                state.currentFile = path;
-                state.currentGroup = file.group;
-                state.lastSavedContent = file.content;
-                setEditorContent(file.content);
-                state.isDirty = false;
-                if (!state.selectedPaths.has(path)) {
-                    state.selectedPaths.clear();
-                    state.selectedPaths.add(path);
+            // 添加远程（使用 force: true 避免重复添加错误）
+            try {
+                const remotes = await git.listRemotes({ fs: state.gitFs, dir: '/repo' });
+                if (!remotes.some(r => r.url === gitUrl)) {
+                    await git.addRemote({ 
+                        fs: state.gitFs, 
+                        dir: '/repo', 
+                        remote: 'origin', 
+                        url: gitUrl,
+                        force: true
+                    });
                 }
-                renderFileTree();
-                updateStatusBar();
-                showToast(`已打开: ${file.name}`, 'info');
-                if (state.searchQuery) {
-                    highlightSearchInEditor(state.searchQuery);
+            } catch (e) {
+                await git.addRemote({ 
+                    fs: state.gitFs, 
+                    dir: '/repo', 
+                    remote: 'origin', 
+                    url: gitUrl,
+                    force: true
+                });
+            }
+
+            // 使用 statusMatrix 自动添加所有未跟踪和已修改的文件
+            const statusMatrix = await git.statusMatrix({ fs: state.gitFs, dir: '/repo' });
+            for (const [filepath, , worktreeStatus] of statusMatrix) {
+                // 0 = 未跟踪 (untracked), 2 = 已修改 (modified)
+                if (worktreeStatus === 0 || worktreeStatus === 2) {
+                    await git.add({ fs: state.gitFs, dir: '/repo', filepath });
                 }
             }
 
-            function setEditorContent(content) {
-                if (state.editor) {
-                    state.editor.setValue(content || '');
-                    state.editor.clearHistory();
-                }
-                updatePreview();
-                clearSearchHighlights();
-            }
+            // 创建提交（允许空提交以确保 HEAD 存在）
+            const commitMessage = 'Update Markdown files - ' + new Date().toLocaleString();
+            await git.commit({
+                fs: state.gitFs,
+                dir: '/repo',
+                message: commitMessage,
+                author: { name: config.owner || 'markdown-user', email: (config.owner ||
+                        'markdown-user') + '@users.noreply.github.com' },
+                allowEmpty: true,
+            });
 
-            function saveCurrentFile() {
-                if (!state.currentFile) {
-                    showToast('请先选择或创建一个文件', 'error');
-                    return;
-                }
-                const file = state.files[state.currentFile];
-                const content = state.editor.getValue();
-                file.content = content;
-                file.updatedAt = new Date().toISOString();
-                state.lastSavedContent = content;
-                state.isDirty = false;
-                updateStatusBar();
-                showToast(`已保存: ${file.name}`, 'success');
-                syncToGitFs(state.currentFile, content);
+            // 推送
+            await git.push({
+                fs: state.gitFs,
+                http: createHttpClient(config),
+                dir: '/repo',
+                url: gitUrl,
+                remote: 'origin',
+                ref: config.branch || 'main',
+                corsProxy: 'https://cors.isomorphic-git.org',
+                onAuth: () => ({ username: config.owner, password: config.token }),
+                force: false,
+            });
+            showToast('推送成功！', 'success');
+        } catch (e) {
+            console.error('Push 失败:', e);
+            let errMsg = e.message || '未知错误';
+            if (errMsg.includes('Cannot read properties of undefined') || errMsg.includes('Failed to fetch')) {
+                errMsg = '网络连接失败，请检查网络后重试';
             }
+            showToast('推送失败: ' + errMsg, 'error');
+        }
+    }
 
-            function createFile(group, name) {
-                const cleanName = name.endsWith('.md') ? name : name + '.md';
+    // ==================== 导出 ====================
+    function exportSelectedFiles() {
+        const selectedPaths = Array.from(state.selectedPaths);
+        if (selectedPaths.length === 0) {
+            showToast('请先选择文件（点击文件或 Ctrl+点击多选）', 'error');
+            return;
+        }
+        if (selectedPaths.length === 1) {
+            const path = selectedPaths[0];
+            const file = state.files[path];
+            if (!file) return;
+            const blob = new Blob([file.content], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = file.name;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast(`已导出: ${file.name}`, 'success');
+        } else {
+            exportFilesAsZip(selectedPaths);
+        }
+    }
+
+    function exportAllFiles() {
+        const allPaths = Object.keys(state.files);
+        if (allPaths.length === 0) {
+            showToast('没有文件可导出', 'error');
+            return;
+        }
+        exportFilesAsZip(allPaths);
+    }
+
+    async function exportFilesAsZip(paths) {
+        if (typeof JSZip === 'undefined') {
+            showToast('JSZip 库未加载，请检查网络', 'error');
+            return;
+        }
+        const zip = new JSZip();
+        for (const path of paths) {
+            const file = state.files[path];
+            if (!file) continue;
+            const folder = zip.folder(file.group);
+            if (folder) {
+                folder.file(file.name, file.content);
+            }
+        }
+        const blob = await zip.generateAsync({ type: 'blob' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `markdown-export-${new Date().toISOString().slice(0,10)}.zip`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast(`已打包导出 ${paths.length} 个文件`, 'success');
+    }
+
+    // ==================== 侧边栏 ====================
+    function toggleSidebar() {
+        state.sidebarCollapsed = !state.sidebarCollapsed;
+        localStorage.setItem('md-sidebar-collapsed', state.sidebarCollapsed);
+        applySidebarState();
+    }
+
+    function applySidebarState() {
+        const sidebar = document.getElementById('sidebar');
+        if (state.sidebarCollapsed) {
+            sidebar.classList.add('collapsed');
+        } else {
+            sidebar.classList.remove('collapsed');
+        }
+        if (state.editor) {
+            setTimeout(() => state.editor.refresh(), 300);
+        }
+    }
+
+    // ==================== 状态栏 ====================
+    function updateStatusBar() {
+        const fileEl = document.getElementById('statusFile');
+        const charsEl = document.getElementById('statusChars');
+        const searchEl = document.getElementById('statusSearch');
+        if (state.currentFile && state.files[state.currentFile]) {
+            const file = state.files[state.currentFile];
+            fileEl.textContent = `📄 ${file.group}/${file.name}` + (state.isDirty ? ' ●' : '');
+        } else {
+            fileEl.textContent = '未选择文件';
+        }
+        const content = state.editor ? state.editor.getValue() : '';
+        charsEl.textContent = `${content.length} 字符`;
+        if (state.searchQuery) {
+            searchEl.textContent = `🔍 搜索: "${state.searchQuery}"`;
+        } else {
+            searchEl.textContent = '';
+        }
+    }
+
+    // ==================== 编辑器快捷键 ====================
+    function toggleBold() {
+        const editor = state.editor;
+        if (!editor) return;
+        const sel = editor.getSelection();
+        if (sel) {
+            editor.replaceSelection(`**${sel}**`);
+        } else {
+            const cursor = editor.getCursor();
+            editor.replaceRange('****', cursor);
+            editor.setCursor({ line: cursor.line, ch: cursor.ch + 2 });
+        }
+        editor.focus();
+    }
+
+    function toggleItalic() {
+        const editor = state.editor;
+        if (!editor) return;
+        const sel = editor.getSelection();
+        if (sel) {
+            editor.replaceSelection(`*${sel}*`);
+        } else {
+            const cursor = editor.getCursor();
+            editor.replaceRange('**', cursor);
+            editor.setCursor({ line: cursor.line, ch: cursor.ch + 1 });
+        }
+        editor.focus();
+    }
+
+    // ==================== 视图模式 ====================
+    function setViewMode(mode) {
+        state.viewMode = mode;
+        const editorPane = document.getElementById('editorPane');
+        const previewPane = document.getElementById('previewPane');
+        const tabs = document.querySelectorAll('.editor-tab');
+        tabs.forEach(tab => {
+            tab.classList.toggle('active', tab.dataset.mode === mode);
+        });
+        if (mode === 'edit') {
+            editorPane.style.display = 'flex';
+            previewPane.style.display = 'none';
+            editorPane.style.flex = '1';
+        } else if (mode === 'preview') {
+            editorPane.style.display = 'none';
+            previewPane.style.display = 'flex';
+            previewPane.style.flex = '1';
+            updatePreview();
+        } else {
+            editorPane.style.display = 'flex';
+            previewPane.style.display = 'flex';
+            editorPane.style.flex = '1';
+            previewPane.style.flex = '1';
+            updatePreview();
+        }
+        if (state.editor) {
+            state.editor.refresh();
+        }
+    }
+
+    // ==================== 搜索 ====================
+    function handleSearch(query) {
+        state.searchQuery = query.trim().toLowerCase();
+        if (!state.searchQuery) {
+            clearSearchHighlights();
+        }
+        renderFileTree();
+        updateStatusBar();
+        if (state.currentFile && state.searchQuery) {
+            highlightSearchInEditor(state.searchQuery);
+        } else if (state.currentFile && !state.searchQuery) {
+            clearSearchHighlights();
+        }
+    }
+
+    function highlightSearchInEditor(query) {
+        clearSearchHighlights();
+        if (!query || !state.editor) return;
+        const cursor = state.editor.getSearchCursor(query, { line: 0, ch: 0 }, { caseFold: true });
+        let firstMatch = null;
+        while (cursor.findNext()) {
+            const from = cursor.from();
+            const to = cursor.to();
+            const marker = state.editor.markText(from, to, { className: 'cm-search-match' });
+            state.searchMarkers.push(marker);
+            if (!firstMatch) {
+                firstMatch = { from, to };
+            }
+        }
+        if (firstMatch) {
+            state.editor.setSelection(firstMatch.from, firstMatch.to);
+            state.editor.scrollIntoView(firstMatch.from, 50);
+        }
+    }
+
+    function clearSearchHighlights() {
+        state.searchMarkers.forEach(marker => marker.clear());
+        state.searchMarkers = [];
+    }
+
+    // ==================== 查找替换 ====================
+    function openFindReplace() {
+        if (state.frModalOverlay) {
+            state.frModalOverlay.querySelector('#fr-search-input').focus();
+            return;
+        }
+        if (!state.editor) return;
+
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay find-replace-modal';
+        overlay.innerHTML = `
+            <div class="modal">
+                <h3>🔍 查找替换</h3>
+                <div class="fr-input-group">
+                    <input type="text" id="fr-search-input" placeholder="查找内容">
+                    <input type="text" id="fr-replace-input" placeholder="替换为">
+                </div>
+                <div class="fr-info" id="fr-info"></div>
+                <div class="fr-results" id="fr-results"></div>
+                <div class="fr-actions">
+                    <button class="btn" id="fr-prev"><i class="fas fa-arrow-up"></i> 上一个</button>
+                    <button class="btn" id="fr-next"><i class="fas fa-arrow-down"></i> 下一个</button>
+                    <button class="btn primary" id="fr-replace-one"><i class="fas fa-sync"></i> 替换选中</button>
+                    <button class="btn danger" id="fr-replace-all"><i class="fas fa-bolt"></i> 全部替换</button>
+                    <button class="btn" id="fr-close"><i class="fas fa-times"></i> 关闭</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        state.frModalOverlay = overlay;
+
+        const searchInput = overlay.querySelector('#fr-search-input');
+        const replaceInput = overlay.querySelector('#fr-replace-input');
+
+        overlay.querySelector('#fr-close').addEventListener('click', closeFindReplace);
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) closeFindReplace();
+        });
+
+        searchInput.addEventListener('input', () => {
+            performFindReplaceSearch(searchInput.value, replaceInput.value);
+        });
+
+        overlay.querySelector('#fr-prev').addEventListener('click', () => navigateMatch(-1));
+        overlay.querySelector('#fr-next').addEventListener('click', () => navigateMatch(1));
+        overlay.querySelector('#fr-replace-one').addEventListener('click', () => replaceCurrentMatch());
+        overlay.querySelector('#fr-replace-all').addEventListener('click', () => replaceAllMatches());
+
+        setTimeout(() => searchInput.focus(), 100);
+    }
+
+    function closeFindReplace() {
+        if (state.frModalOverlay) {
+            state.frModalOverlay.remove();
+            state.frModalOverlay = null;
+            state.frMatches = [];
+            state.frCurrentIndex = -1;
+        }
+    }
+
+    function performFindReplaceSearch(searchTerm, replaceTerm) {
+        state.frSearchTerm = searchTerm;
+        state.frReplaceTerm = replaceTerm;
+        state.frMatches = [];
+        state.frCurrentIndex = -1;
+
+        if (!searchTerm) {
+            updateFindReplaceUI();
+            return;
+        }
+
+        const cursor = state.editor.getSearchCursor(searchTerm, { line: 0, ch: 0 }, { caseFold: true });
+        while (cursor.findNext()) {
+            const from = cursor.from();
+            const to = cursor.to();
+            const line = from.line;
+            const lineText = state.editor.getLine(line);
+            const start = Math.max(0, from.ch - 20);
+            const end = Math.min(lineText.length, to.ch + 20);
+            const context = lineText.substring(start, end);
+            state.frMatches.push({
+                from: from,
+                to: to,
+                line: line + 1,
+                context: context,
+                startOffset: from.ch - start,
+                endOffset: to.ch - start
+            });
+        }
+
+        if (state.frMatches.length > 0) {
+            state.frCurrentIndex = 0;
+            clearSearchHighlights();
+            state.frMatches.forEach(match => {
+                const marker = state.editor.markText(match.from, match.to, { className: 'cm-search-match' });
+                state.searchMarkers.push(marker);
+            });
+            selectMatch(0);
+        } else {
+            clearSearchHighlights();
+        }
+
+        updateFindReplaceUI();
+    }
+
+    function updateFindReplaceUI() {
+        if (!state.frModalOverlay) return;
+        const resultsDiv = state.frModalOverlay.querySelector('#fr-results');
+        const infoDiv = state.frModalOverlay.querySelector('#fr-info');
+
+        if (state.frMatches.length === 0) {
+            infoDiv.textContent = state.frSearchTerm ? '未找到匹配项' : '';
+        } else {
+            infoDiv.textContent = `找到 ${state.frMatches.length} 个匹配项，当前第 ${state.frCurrentIndex + 1} 个`;
+        }
+
+        resultsDiv.innerHTML = '';
+        state.frMatches.forEach((match, index) => {
+            const item = document.createElement('div');
+            item.className = 'fr-result-item' + (index === state.frCurrentIndex ? ' active' : '');
+            const before = match.context.substring(0, match.startOffset);
+            const matched = match.context.substring(match.startOffset, match.endOffset);
+            const after = match.context.substring(match.endOffset);
+            const highlightedContext = escapeHtml(before) + `<mark>${escapeHtml(matched)}</mark>` + escapeHtml(
+                after);
+            item.innerHTML = `
+                <span class="fr-line">${match.line}</span>
+                <span class="fr-context">${highlightedContext}</span>
+            `;
+            item.addEventListener('click', () => {
+                selectMatch(index);
+            });
+            resultsDiv.appendChild(item);
+        });
+    }
+
+    function selectMatch(index) {
+        if (index < 0 || index >= state.frMatches.length) return;
+        state.frCurrentIndex = index;
+        const match = state.frMatches[index];
+        state.editor.setSelection(match.from, match.to);
+        state.editor.scrollIntoView(match.from, 50);
+        updateFindReplaceUI();
+    }
+
+    function navigateMatch(direction) {
+        if (state.frMatches.length === 0) return;
+        let newIndex = state.frCurrentIndex + direction;
+        if (newIndex < 0) newIndex = state.frMatches.length - 1;
+        if (newIndex >= state.frMatches.length) newIndex = 0;
+        selectMatch(newIndex);
+    }
+
+    function replaceCurrentMatch() {
+        if (!state.frModalOverlay || state.frMatches.length === 0) return;
+        const match = state.frMatches[state.frCurrentIndex];
+        if (!match) return;
+        const replaceTerm = state.frModalOverlay.querySelector('#fr-replace-input').value;
+        state.editor.replaceRange(replaceTerm, match.from, match.to);
+        performFindReplaceSearch(state.frSearchTerm, replaceTerm);
+        if (state.currentFile) {
+            state.files[state.currentFile].content = state.editor.getValue();
+            state.files[state.currentFile].updatedAt = new Date().toISOString();
+            state.isDirty = true;
+            updateStatusBar();
+        }
+    }
+
+    function replaceAllMatches() {
+        if (!state.frModalOverlay || state.frMatches.length === 0) return;
+        const replaceTerm = state.frModalOverlay.querySelector('#fr-replace-input').value;
+        for (let i = state.frMatches.length - 1; i >= 0; i--) {
+            const match = state.frMatches[i];
+            state.editor.replaceRange(replaceTerm, match.from, match.to);
+        }
+        performFindReplaceSearch(state.frSearchTerm, replaceTerm);
+        if (state.currentFile) {
+            state.files[state.currentFile].content = state.editor.getValue();
+            state.files[state.currentFile].updatedAt = new Date().toISOString();
+            state.isDirty = true;
+            updateStatusBar();
+        }
+        showToast(`已替换 ${state.frMatches.length} 处`, 'success');
+    }
+
+    // ==================== 主题 ====================
+    function toggleTheme() {
+        state.theme = state.theme === 'light' ? 'dark' : 'light';
+        localStorage.setItem('md-theme', state.theme);
+        applyTheme();
+        const icon = document.getElementById('themeIcon');
+        icon.className = state.theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+    }
+
+    function applyTheme() {
+        document.documentElement.setAttribute('data-theme', state.theme);
+        if (state.editor) {
+            state.editor.setOption('theme', state.theme === 'dark' ? 'material-darker' : 'one-light');
+        }
+        const hljsDark = document.getElementById('hljs-dark');
+        const hljsLight = document.getElementById('hljs-light');
+        if (state.theme === 'dark') {
+            hljsDark.disabled = false;
+            hljsLight.disabled = true;
+        } else {
+            hljsDark.disabled = true;
+            hljsLight.disabled = false;
+        }
+        const icon = document.getElementById('themeIcon');
+        if (icon) {
+            icon.className = state.theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+        }
+    }
+
+    // ==================== 上传 ====================
+    function handleUpload(files) {
+        const group = state.currentGroup || '默认';
+        let count = 0;
+        const total = files.length;
+        Array.from(files).forEach(file => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const content = e.target.result;
+                const name = file.name || 'uploaded.md';
+                const cleanName = name.endsWith('.md') || name.endsWith('.markdown') || name.endsWith(
+                    '.txt') ? name : name + '.md';
                 const path = `${group}/${cleanName}`;
-                if (state.files[path]) {
-                    showToast('同名文件已存在', 'error');
-                    return false;
+                let finalPath = path;
+                let counter = 1;
+                while (state.files[finalPath]) {
+                    const ext = cleanName.includes('.') ? '.' + cleanName.split('.').pop() : '';
+                    const base = cleanName.replace(/\.[^.]+$/, '');
+                    finalPath = `${group}/${base}_${counter}${ext}`;
+                    counter++;
                 }
-                if (!state.groups.has(group)) {
-                    state.groups.add(group);
-                }
-                state.files[path] = {
-                    name: cleanName,
+                if (!state.groups.has(group)) state.groups.add(group);
+                state.files[finalPath] = {
+                    name: finalPath.split('/').pop(),
                     group: group,
-                    content: '# ' + cleanName.replace('.md', '') + '\n\n开始编写内容...\n',
+                    content: content,
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
                 };
-                state.currentFile = path;
-                state.currentGroup = group;
-                state.lastSavedContent = state.files[path].content;
-                setEditorContent(state.files[path].content);
-                state.isDirty = false;
-                state.selectedPaths.clear();
-                state.selectedPaths.add(path);
-                renderFileTree();
-                updateStatusBar();
-                showToast(`已创建: ${cleanName}`, 'success');
-                syncToGitFs(path, state.files[path].content);
-                return true;
-            }
-
-            function deleteFile(path) {
-                if (!path || !state.files[path]) return;
-                const file = state.files[path];
-                if (!confirm(`确定删除文件「${file.name}」吗？此操作不可撤销。`)) return;
-                delete state.files[path];
-                if (state.currentFile === path) {
-                    state.currentFile = null;
-                    setEditorContent('');
-                }
-                state.selectedPaths.delete(path);
-                removeFromGitFs(path);
-                renderFileTree();
-                updateStatusBar();
-                showToast(`已删除: ${file.name}`, 'info');
-            }
-
-            function renameFile(path, newName) {
-                const file = state.files[path];
-                if (!file) return;
-                const cleanName = newName.endsWith('.md') ? newName : newName + '.md';
-                const newPath = `${file.group}/${cleanName}`;
-                if (newPath === path) return;
-                if (state.files[newPath]) {
-                    showToast('同名文件已存在', 'error');
-                    return;
-                }
-                removeFromGitFs(path);
-                file.name = cleanName;
-                file.updatedAt = new Date().toISOString();
-                state.files[newPath] = file;
-                delete state.files[path];
-                if (state.currentFile === path) {
-                    state.currentFile = newPath;
-                }
-                if (state.selectedPaths.has(path)) {
-                    state.selectedPaths.delete(path);
-                    state.selectedPaths.add(newPath);
-                }
-                syncToGitFs(newPath, file.content);
-                renderFileTree();
-                updateStatusBar();
-                showToast(`已重命名为: ${cleanName}`, 'success');
-            }
-
-            function moveFileToGroup(path, newGroup) {
-                const file = state.files[path];
-                if (!file || file.group === newGroup) return;
-                if (!state.groups.has(newGroup)) {
-                    state.groups.add(newGroup);
-                }
-                const newPath = `${newGroup}/${file.name}`;
-                if (state.files[newPath]) {
-                    showToast('目标分组有同名文件', 'error');
-                    return;
-                }
-                removeFromGitFs(path);
-                file.group = newGroup;
-                file.updatedAt = new Date().toISOString();
-                state.files[newPath] = file;
-                delete state.files[path];
-                if (state.currentFile === path) {
-                    state.currentFile = newPath;
-                    state.currentGroup = newGroup;
-                }
-                if (state.selectedPaths.has(path)) {
-                    state.selectedPaths.delete(path);
-                    state.selectedPaths.add(newPath);
-                }
-                syncToGitFs(newPath, file.content);
-                renderFileTree();
-                updateStatusBar();
-                showToast(`已移动到: ${newGroup}`, 'success');
-            }
-
-            function createGroup(name) {
-                if (!name.trim()) return;
-                if (state.groups.has(name)) {
-                    showToast('分组已存在', 'error');
-                    return;
-                }
-                state.groups.add(name);
-                state.collapsedGroups.delete(name);
-                renderFileTree();
-                showToast(`已创建分组: ${name}`, 'success');
-            }
-
-            function deleteGroup(name) {
-                if (!state.groups.has(name)) return;
-                const filesInGroup = Object.entries(state.files).filter(([p, f]) => f.group === name);
-                if (filesInGroup.length > 0) {
-                    if (!confirm(`分组「${name}」中有 ${filesInGroup.length} 个文件，确定删除并移动文件到「默认」？`))
-                        return;
-                    filesInGroup.forEach(([path, file]) => {
-                        const newPath = `默认/${file.name}`;
-                        let finalPath = newPath;
-                        let counter = 1;
-                        while (state.files[finalPath]) {
-                            const ext = file.name.includes('.') ? '.' + file.name.split('.').pop() : '';
-                            const baseName = file.name.replace(ext, '');
-                            finalPath = `默认/${baseName}_${counter}${ext}`;
-                            counter++;
-                        }
-                        file.group = '默认';
-                        file.name = finalPath.split('/').pop();
-                        file.updatedAt = new Date().toISOString();
-                        state.files[finalPath] = file;
-                        delete state.files[path];
-                        if (state.currentFile === path) {
-                            state.currentFile = finalPath;
-                            state.currentGroup = '默认';
-                        }
-                        if (state.selectedPaths.has(path)) {
-                            state.selectedPaths.delete(path);
-                            state.selectedPaths.add(finalPath);
-                        }
-                        syncToGitFs(finalPath, file.content);
-                        removeFromGitFs(path);
-                    });
-                }
-                state.groups.delete(name);
-                state.collapsedGroups.delete(name);
-                if (state.currentGroup === name) {
-                    state.currentGroup = '默认';
-                    state.currentFile = null;
-                    setEditorContent('');
-                }
-                renderFileTree();
-                updateStatusBar();
-                showToast(`已删除分组: ${name}`, 'info');
-            }
-
-            // ==================== 模态框 ====================
-            function showModal(html, onOk) {
-                const overlay = document.createElement('div');
-                overlay.className = 'modal-overlay';
-                overlay.innerHTML = `
-                    <div class="modal">
-                        ${html}
-                        <div class="modal-actions">
-                            <button class="btn" id="modalCancel">取消</button>
-                            <button class="btn primary" id="modalOk">确定</button>
-                        </div>
-                    </div>
-                `;
-                document.body.appendChild(overlay);
-                overlay.querySelector('#modalCancel').addEventListener('click', () => overlay.remove());
-                overlay.querySelector('#modalOk').addEventListener('click', () => {
-                    const result = onOk(overlay);
-                    if (result !== false) overlay.remove();
-                });
-                overlay.addEventListener('click', (e) => {
-                    if (e.target === overlay) overlay.remove();
-                });
-                return overlay;
-            }
-
-            function showNewFileModal(prefillGroup) {
-                const group = prefillGroup || state.currentGroup || '默认';
-                const groups = Array.from(state.groups);
-                showModal(`
-                    <h3>📄 新建 Markdown 文件</h3>
-                    <div class="form-group">
-                        <label>文件名</label>
-                        <input type="text" id="modalFileName" placeholder="例如: 我的笔记.md" value="">
-                    </div>
-                    <div class="form-group">
-                        <label>分组</label>
-                        <select id="modalFileGroup">
-                            ${groups.map(g => `<option value="${escapeHtml(g)}" ${g === group ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}
-                            <option value="__new__">➕ 新建分组...</option>
-                        </select>
-                    </div>
-                `, (overlay) => {
-                    const name = overlay.querySelector('#modalFileName').value.trim();
-                    const groupSelect = overlay.querySelector('#modalFileGroup');
-                    let groupName = groupSelect.value;
-                    if (groupName === '__new__') {
-                        groupName = prompt('请输入新分组名称:');
-                        if (!groupName || !groupName.trim()) return false;
-                        state.groups.add(groupName);
-                    }
-                    if (!name) {
-                        showToast('请输入文件名', 'error');
-                        return false;
-                    }
-                    return createFile(groupName, name) !== false;
-                });
-                setTimeout(() => {
-                    const input = overlay.querySelector('#modalFileName');
-                    if (input) input.focus();
-                }, 100);
-            }
-
-            function showNewGroupModal() {
-                showModal(`
-                    <h3>📁 新建分组</h3>
-                    <div class="form-group">
-                        <label>分组名称</label>
-                        <input type="text" id="modalGroupName" placeholder="例如: 工作笔记">
-                    </div>
-                `, (overlay) => {
-                    const name = overlay.querySelector('#modalGroupName').value.trim();
-                    if (!name) {
-                        showToast('请输入分组名称', 'error');
-                        return false;
-                    }
-                    createGroup(name);
-                    return true;
-                });
-            }
-
-            function showRenameModal(path) {
-                const file = state.files[path];
-                if (!file) return;
-                showModal(`
-                    <h3>✏️ 重命名文件</h3>
-                    <div class="form-group">
-                        <label>新文件名</label>
-                        <input type="text" id="modalRenameInput" value="${escapeHtml(file.name)}">
-                    </div>
-                    <div class="form-group">
-                        <label>移动到分组</label>
-                        <select id="modalMoveGroup">
-                            ${Array.from(state.groups).map(g => `<option value="${escapeHtml(g)}" ${g === file.group ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}
-                        </select>
-                    </div>
-                `, (overlay) => {
-                    const newName = overlay.querySelector('#modalRenameInput').value.trim();
-                    const newGroup = overlay.querySelector('#modalMoveGroup').value;
-                    if (!newName) {
-                        showToast('请输入文件名', 'error');
-                        return false;
-                    }
-                    if (newGroup !== file.group) {
-                        moveFileToGroup(path, newGroup);
-                    }
-                    if (newName !== file.name) {
-                        renameFile(path, newName);
-                    }
-                    return true;
-                });
-            }
-
-            // ==================== GitHub 连接检查 ====================
-            async function checkGitHubConnection(owner, repo, token) {
-                if (!owner || !repo) {
-                    return { success: false, message: '请填写用户名和仓库名称' };
-                }
-                if (!token) {
-                    return { success: false, message: '请填写 Personal Access Token' };
-                }
-
-                const headers = {
-                    'Accept': 'application/vnd.github+json',
-                    'X-GitHub-Api-Version': '2022-11-28',
-                };
-                if (token) {
-                    headers['Authorization'] = 'Bearer ' + token;
-                }
-
-                try {
-                    // 1. 检查仓库是否存在且可访问
-                    const repoRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers });
-                    if (repoRes.status === 401) {
-                        return { success: false, message: 'Token 无效或已过期，请检查后重试' };
-                    }
-                    if (repoRes.status === 404) {
-                        return { success: false, message: `仓库「${owner}/${repo}」不存在或无权访问` };
-                    }
-                    if (repoRes.status === 403) {
-                        const rateData = await repoRes.json().catch(() => ({}));
-                        if (rateData.message && rateData.message.includes('rate limit')) {
-                            return { success: false, message: 'API 速率限制已用完，请稍后重试' };
-                        }
-                        return { success: false, message: '访问被拒绝，请检查 Token 权限' };
-                    }
-                    if (!repoRes.ok) {
-                        return { success: false, message: `仓库检查失败 (HTTP ${repoRes.status})` };
-                    }
-                    const repoData = await repoRes.json();
-
-                    // 2. 检查 token 作用域
-                    const scopes = repoRes.headers.get('X-OAuth-Scopes') || '';
-                    const hasRepoScope = scopes.split(',').map(s => s.trim()).some(s => s === 'repo' || s === 'public_repo');
-                    const isPrivate = repoData.private === true;
-                    const scopeWarning = isPrivate && !scopes.includes('repo') ?
-                        '（⚠️ 私有仓库需要 token 具有 repo 权限）' : '';
-
-                    // 3. 获取默认分支
-                    const defaultBranch = repoData.default_branch || 'main';
-
-                    return {
-                        success: true,
-                        message: `✅ 连接成功！仓库「${repoData.full_name}」可访问。默认分支: ${defaultBranch}${scopeWarning}`,
-                        repoData: repoData,
-                        defaultBranch: defaultBranch,
-                        scopes: scopes,
-                    };
-                } catch (e) {
-                    if (e.message && e.message.includes('Failed to fetch')) {
-                        return { success: false, message: '网络连接失败，请检查网络后重试' };
-                    }
-                    return { success: false, message: '检查失败: ' + (e.message || '未知错误') };
-                }
-            }
-
-            // ==================== Git 配置模态框 ====================
-            function showGitConfigModal() {
-                const config = state.gitConfig || { owner: '', repo: '', token: '', branch: 'main' };
-                const overlay = document.createElement('div');
-                overlay.className = 'modal-overlay';
-                overlay.innerHTML = `
-                    <div class="modal" style="width:560px;">
-                        <h3>⚙️ GitHub 仓库配置</h3>
-                        <p style="font-size:12px;color:var(--text-light);margin-bottom:12px;">
-                            <i class="fas fa-info-circle"></i> 填写你的 GitHub 用户名、仓库名称和 Token。
-                            Token 需要 <code>repo</code> 权限（私有仓库）或 <code>public_repo</code> 权限（公共仓库）。
-                        </p>
-                        <div class="form-group">
-                            <label><i class="fab fa-github"></i> GitHub 用户名 (owner)</label>
-                            <input type="text" id="gitOwner" placeholder="例如: octocat" value="${escapeHtml(config.owner || '')}">
-                        </div>
-                        <div class="form-group">
-                            <label><i class="fas fa-book"></i> 仓库名称 (repo)</label>
-                            <input type="text" id="gitRepo" placeholder="例如: my-notes" value="${escapeHtml(config.repo || '')}">
-                        </div>
-                        <div class="form-group">
-                            <label><i class="fas fa-key"></i> Personal Access Token</label>
-                            <input type="password" id="gitToken" placeholder="ghp_..." value="${escapeHtml(config.token || '')}">
-                            <small style="color:var(--text-light);font-size:11px;">⚠️ Token 仅保存在本地浏览器中</small>
-                        </div>
-                        <div class="form-group">
-                            <label><i class="fas fa-code-branch"></i> 分支</label>
-                            <input type="text" id="gitBranch" placeholder="main" value="${escapeHtml(config.branch || 'main')}">
-                        </div>
-                        <button class="btn btn-test-connection" id="btnTestGit" type="button">
-                            <i class="fas fa-plug"></i> 检查连接
-                        </button>
-                        <div id="gitCheckResult" class="git-check-result" style="display:none;"></div>
-                        <div class="modal-actions">
-                            <button class="btn" id="modalCancel">取消</button>
-                            <button class="btn primary" id="modalOk">保存配置</button>
-                        </div>
-                    </div>
-                `;
-                document.body.appendChild(overlay);
-
-                const resultDiv = overlay.querySelector('#gitCheckResult');
-                const testBtn = overlay.querySelector('#btnTestGit');
-
-                overlay.querySelector('#modalCancel').addEventListener('click', () => overlay.remove());
-                overlay.querySelector('#modalOk').addEventListener('click', () => {
-                    const owner = overlay.querySelector('#gitOwner').value.trim();
-                    const repo = overlay.querySelector('#gitRepo').value.trim();
-                    const token = overlay.querySelector('#gitToken').value.trim();
-                    const branch = overlay.querySelector('#gitBranch').value.trim() || 'main';
-                    if (!owner) {
-                        showToast('请输入 GitHub 用户名', 'error');
-                        return;
-                    }
-                    if (!repo) {
-                        showToast('请输入仓库名称', 'error');
-                        return;
-                    }
-                    const newConfig = { owner, repo: repo.replace(/\.git$/, ''), token, branch };
-                    saveGitConfig(newConfig);
-                    updateStatusBar();
-                    showToast('Git 配置已保存', 'success');
-                    overlay.remove();
-                });
-                overlay.addEventListener('click', (e) => {
-                    if (e.target === overlay) overlay.remove();
-                });
-
-                // 检查连接按钮
-                testBtn.addEventListener('click', async () => {
-                    if (state.gitCheckInProgress) return;
-                    const owner = overlay.querySelector('#gitOwner').value.trim();
-                    const repo = overlay.querySelector('#gitRepo').value.trim().replace(/\.git$/, '');
-                    const token = overlay.querySelector('#gitToken').value.trim();
-
-                    state.gitCheckInProgress = true;
-                    testBtn.disabled = true;
-                    testBtn.innerHTML = '<span class="spinner"></span> 正在检查...';
-                    resultDiv.style.display = 'block';
-                    resultDiv.className = 'git-check-result pending';
-                    resultDiv.innerHTML = '<span class="icon">⏳</span> 正在检查 GitHub 连接...';
-
-                    const result = await checkGitHubConnection(owner, repo, token);
-
-                    if (result.success) {
-                        resultDiv.className = 'git-check-result success';
-                        resultDiv.innerHTML = `<span class="icon">✅</span> ${result.message}`;
-                        // 自动更新分支字段
-                        if (result.defaultBranch) {
-                            const branchInput = overlay.querySelector('#gitBranch');
-                            if (branchInput && !branchInput.value.trim()) {
-                                branchInput.value = result.defaultBranch;
-                            }
-                        }
-                    } else {
-                        resultDiv.className = 'git-check-result error';
-                        resultDiv.innerHTML = `<span class="icon">❌</span> ${result.message}`;
-                    }
-
-                    state.gitCheckInProgress = false;
-                    testBtn.disabled = false;
-                    testBtn.innerHTML = '<i class="fas fa-plug"></i> 检查连接';
-                });
-
-                setTimeout(() => {
-                    const ownerInput = overlay.querySelector('#gitOwner');
-                    if (ownerInput) ownerInput.focus();
-                }, 100);
-            }
-
-            // ==================== Git 文件系统 ====================
-            async function initGitFs() {
-                if (state.gitInitializing) return;
-                state.gitInitializing = true;
-                updateGitStatus('loading', '⏳ 加载中...');
-
-                try {
-                    const fsModule = await import('https://esm.sh/@isomorphic-git/lightning-fs@4.6.0?bundle');
-                    const gitModule = await import('https://esm.sh/isomorphic-git@1.25.10?bundle');
-
-                    state.gitFs = new fsModule.default('markdown-fs', {
-                        wipe: false,
-                        store: 'markdown-fs-store'
-                    });
-                    state.gitModule = gitModule;
-                    state.fsReady = true;
-
-                    try {
-                        await state.gitFs.promises.mkdir('/repo', { recursive: true });
-                    } catch (e) {}
-
-                    await reloadFromGitFs();
-
-                    updateGitStatus('ready', '✅ Git 就绪');
-                    showToast('Git 文件系统已就绪', 'success');
-                    state.gitInitRetries = 0;
-                    return true;
-                } catch (e) {
-                    console.error('Git FS 初始化失败:', e);
-                    state.fsReady = false;
-                    state.gitModule = null;
-                    state.gitFs = null;
-                    updateGitStatus('error', '❌ Git 未就绪');
-
-                    if (state.gitInitRetries < state.maxGitRetries) {
-                        state.gitInitRetries++;
-                        showToast(`Git 初始化失败 (${state.gitInitRetries}/${state.maxGitRetries})，正在重试...`, 'warning');
-                        await new Promise(r => setTimeout(r, 2000));
-                        state.gitInitializing = false;
-                        return initGitFs();
-                    }
-
-                    showToast('Git 文件系统初始化失败，请检查网络后刷新重试', 'error');
-                    return false;
-                } finally {
-                    state.gitInitializing = false;
-                }
-            }
-
-            function updateGitStatus(status, label) {
-                const statusEl = document.getElementById('statusGit');
-                if (!statusEl) return;
-                const className = status === 'ready' ? 'git-status ready' :
-                    status === 'error' ? 'git-status error' :
-                    status === 'loading' ? 'git-status loading' : 'git-status';
-                statusEl.innerHTML = `<span class="${className}">${label}</span>`;
-            }
-
-            async function syncToGitFs(path, content) {
-                if (!state.fsReady || !state.gitFs) return;
-                try {
-                    const fsPath = '/repo/' + path.replace(/^\/+/, '');
-                    const dir = fsPath.substring(0, fsPath.lastIndexOf('/'));
-                    if (dir) {
-                        await state.gitFs.promises.mkdir(dir, { recursive: true });
-                    }
-                    await state.gitFs.promises.writeFile(fsPath, content, 'utf8');
-                } catch (e) {
-                    console.warn('同步到 Git FS 失败:', e);
-                }
-            }
-
-            async function removeFromGitFs(path) {
-                if (!state.fsReady || !state.gitFs) return;
-                try {
-                    const fsPath = '/repo/' + path.replace(/^\/+/, '');
-                    await state.gitFs.promises.unlink(fsPath);
-                } catch (e) {
-                    console.warn('从 Git FS 删除失败:', e);
-                }
-            }
-
-            async function syncAllToGitFs() {
-                if (!state.fsReady || !state.gitFs) return;
-                for (const [path, file] of Object.entries(state.files)) {
-                    await syncToGitFs(path, file.content);
-                }
-            }
-
-            async function getAllFiles(dir) {
-                const results = [];
-                async function walk(d) {
-                    const entries = await state.gitFs.promises.readdir(d);
-                    for (const entry of entries) {
-                        if (entry === '.git') continue;
-                        const fullPath = d + '/' + entry;
-                        const stat = await state.gitFs.promises.stat(fullPath);
-                        if (stat.isDirectory()) {
-                            await walk(fullPath);
-                        } else {
-                            results.push(fullPath);
-                        }
-                    }
-                }
-                await walk(dir);
-                return results;
-            }
-
-            async function reloadFromGitFs() {
-                if (!state.fsReady || !state.gitFs) return;
-                try {
-                    const files = await getAllFiles('/repo');
-                    const newFiles = {};
-                    for (const filePath of files) {
-                        const relativePath = filePath.replace('/repo/', '');
-                        const parts = relativePath.split('/');
-                        if (parts.length === 2) {
-                            const group = parts[0];
-                            const name = parts[1];
-                            if (name.endsWith('.md') || name.endsWith('.markdown') || name.endsWith('.txt')) {
-                                const content = await state.gitFs.promises.readFile(filePath, 'utf8');
-                                if (!state.groups.has(group)) {
-                                    state.groups.add(group);
-                                }
-                                newFiles[relativePath] = {
-                                    name: name,
-                                    group: group,
-                                    content: content,
-                                    createdAt: state.files[relativePath]?.createdAt || new Date().toISOString(),
-                                    updatedAt: new Date().toISOString(),
-                                };
-                            }
-                        }
-                    }
-                    for (const [path, file] of Object.entries(newFiles)) {
-                        if (!state.files[path]) {
-                            state.files[path] = file;
-                        } else if (state.files[path].content !== file.content) {
-                            showToast(`文件 ${file.name} 有冲突，保留本地版本`, 'warning');
-                        }
-                    }
+                syncToGitFs(finalPath, content);
+                count++;
+                if (count === total) {
                     renderFileTree();
-                    if (state.currentFile && state.files[state.currentFile]) {
-                        setEditorContent(state.files[state.currentFile].content);
-                        state.isDirty = false;
-                    }
                     updateStatusBar();
-                } catch (e) {
-                    console.warn('重新加载失败:', e);
+                    showToast(`成功上传 ${count} 个文件`, 'success');
                 }
-            }
-
-            // ==================== 改进的 Git HTTP 客户端 ====================
-            function createHttpClient(config) {
-                return {
-                    request: async (req) => {
-                        const headers = { ...req.headers };
-                        // 让 isomorphic-git 的 onAuth 处理认证
-                        const res = await fetch(req.url, {
-                            method: req.method || 'GET',
-                            headers: headers,
-                            body: req.body,
-                        });
-                        return res;
-                    }
-                };
-            }
-
-            // ==================== Git Pull ====================
-            async function gitPull() {
-                if (!state.fsReady || !state.gitModule) {
-                    showToast('Git 文件系统未就绪，请刷新页面重试', 'error');
-                    return;
-                }
-                if (!state.gitConfig || !state.gitConfig.owner || !state.gitConfig.repo) {
-                    showToast('请先在 Git 配置中填写用户名和仓库名称', 'error');
-                    showGitConfigModal();
-                    return;
-                }
-                const config = state.gitConfig;
-                const gitUrl = buildGitUrl(config);
-                showToast('正在拉取远程仓库...', 'info');
-                try {
-                    await syncAllToGitFs();
-
-                    const git = state.gitModule;
-                    try {
-                        await git.getConfig({ fs: state.gitFs, dir: '/repo', path: 'user.name' });
-                    } catch (e) {
-                        await git.init({ fs: state.gitFs, dir: '/repo', defaultBranch: config.branch || 'main' });
-                        await git.setConfig({ fs: state.gitFs, dir: '/repo', path: 'user.name', value: config
-                                .owner || 'markdown-user' });
-                        await git.setConfig({ fs: state.gitFs, dir: '/repo', path: 'user.email', value: (config
-                                .owner || 'markdown-user') + '@users.noreply.github.com' });
-                    }
-
-try {
-    const remotes = await git.listRemotes({ fs: state.gitFs, dir: '/repo' });
-    // 可以保留检查，但最后添加时用 force: true 保证安全
-    if (!remotes.some(r => r.url === gitUrl)) {
-        await git.addRemote({ 
-            fs: state.gitFs, 
-            dir: '/repo', 
-            remote: 'origin', 
-            url: gitUrl,
-            force: true   // ✅ 加上这个参数
+            };
+            reader.readAsText(file);
         });
     }
-} catch (e) {
-    // 如果 listRemotes 失败，直接强制添加
-    await git.addRemote({ 
-        fs: state.gitFs, 
-        dir: '/repo', 
-        remote: 'origin', 
-        url: gitUrl,
-        force: true
-    });
-}
 
-                    const result = await git.pull({
-                        fs: state.gitFs,
-                        http: createHttpClient(config),
-                        dir: '/repo',
-                        url: gitUrl,
-                        ref: config.branch || 'main',
-                        singleBranch: true,
-                        corsProxy: 'https://cors.isomorphic-git.org',
-                        onAuth: () => ({ username: config.owner, password: config.token }),
-                        author: { name: config.owner || 'user', email: (config.owner || 'user') +
-                                '@users.noreply.github.com' },
-                    });
-                    showToast(`拉取成功！${result.files && result.files.length ? '更新了 ' + result.files.length + ' 个文件' : '已是最新'}`, 'success');
-                    await reloadFromGitFs();
-                } catch (e) {
-                    console.error('Pull 失败:', e);
-                    let errMsg = e.message || '未知错误';
-                    if (errMsg.includes('Cannot read properties of undefined') || errMsg.includes('Failed to fetch')) {
-                        errMsg = '网络连接失败，请检查网络后重试';
+    // ==================== 初始化 ====================
+    async function init() {
+        state.hljs = window.hljs;
+        initMarkdown();
+        initEditor();
+        applyTheme();
+        setViewMode('split');
+        applySidebarState();
+
+        const savedFiles = localStorage.getItem('md-files');
+        if (savedFiles) {
+            try {
+                state.files = JSON.parse(savedFiles);
+                Object.values(state.files).forEach(f => {
+                    if (f.group && !state.groups.has(f.group)) {
+                        state.groups.add(f.group);
                     }
-                    showToast('拉取失败: ' + errMsg, 'error');
-                }
-            }
+                });
+            } catch (e) {}
+        }
+        const savedGroups = localStorage.getItem('md-groups');
+        if (savedGroups) {
+            try {
+                const groups = JSON.parse(savedGroups);
+                groups.forEach(g => state.groups.add(g));
+            } catch (e) {}
+        }
+        if (!state.groups.has('默认')) state.groups.add('默认');
 
-            // ==================== Git Push ====================
-            async function gitPush() {
-                if (!state.fsReady || !state.gitModule) {
-                    showToast('Git 文件系统未就绪，请刷新页面重试', 'error');
-                    return;
-                }
-                if (!state.gitConfig || !state.gitConfig.owner || !state.gitConfig.repo) {
-                    showToast('请先在 Git 配置中填写用户名和仓库名称', 'error');
-                    showGitConfigModal();
-                    return;
-                }
-                const config = state.gitConfig;
-                if (state.currentFile && state.isDirty) {
-                    saveCurrentFile();
-                }
-                await syncAllToGitFs();
-                showToast('正在提交并推送...', 'info');
-                try {
-                    const git = state.gitModule;
-                    const gitUrl = buildGitUrl(config);
+        renderFileTree();
+        updateStatusBar();
 
-                    try {
-                        await git.getConfig({ fs: state.gitFs, dir: '/repo', path: 'user.name' });
-                    } catch (e) {
-                        await git.init({ fs: state.gitFs, dir: '/repo', defaultBranch: config.branch || 'main' });
-                        await git.setConfig({ fs: state.gitFs, dir: '/repo', path: 'user.name', value: config
-                                .owner || 'markdown-user' });
-                        await git.setConfig({ fs: state.gitFs, dir: '/repo', path: 'user.email', value: (config
-                                .owner || 'markdown-user') + '@users.noreply.github.com' });
-                    }
+        setTimeout(() => {
+            initGitFs();
+        }, 500);
 
-try {
-    const remotes = await git.listRemotes({ fs: state.gitFs, dir: '/repo' });
-    if (!remotes.some(r => r.url === gitUrl)) {
-        await git.addRemote({ 
-            fs: state.gitFs, 
-            dir: '/repo', 
-            remote: 'origin', 
-            url: gitUrl,
-            force: true
-        });
+        setInterval(() => {
+            localStorage.setItem('md-files', JSON.stringify(state.files));
+            localStorage.setItem('md-groups', JSON.stringify(Array.from(state.groups)));
+        }, 5000);
+
+        bindEvents();
+        showToast('欢迎使用 Markdown 笔记 v1.5', 'info');
     }
-} catch (e) {
-    await git.addRemote({ 
-        fs: state.gitFs, 
-        dir: '/repo', 
-        remote: 'origin', 
-        url: gitUrl,
-        force: true
-    });
-}
 
-                    const files = await state.gitFs.promises.readdir('/repo');
-                    for (const file of files) {
-                        if (file === '.git') continue;
-                        const filePath = '/repo/' + file;
-                        try {
-                            const stat = await state.gitFs.promises.stat(filePath);
-                            if (stat.isDirectory()) {
-                                const subFiles = await getAllFiles(filePath);
-                                for (const sf of subFiles) {
-                                    await git.add({ fs: state.gitFs, dir: '/repo', filepath: sf.replace('/repo/',
-                                            '') });
-                                }
-                            } else {
-                                await git.add({ fs: state.gitFs, dir: '/repo', filepath: file });
-                            }
-                        } catch (e) {}
-                    }
+    function bindEvents() {
+        document.getElementById('btnNewFile').addEventListener('click', () => showNewFileModal());
+        document.getElementById('btnNewGroup').addEventListener('click', () => showNewGroupModal());
+        document.getElementById('btnUpload').addEventListener('click', () => document.getElementById(
+            'fileUploadInput').click());
+        document.getElementById('btnSave').addEventListener('click', saveCurrentFile);
+        document.getElementById('btnRename').addEventListener('click', () => {
+            if (state.currentFile) showRenameModal(state.currentFile);
+            else showToast('请先选择文件', 'error');
+        });
+        document.getElementById('btnDelete').addEventListener('click', () => {
+            if (state.currentFile) deleteFile(state.currentFile);
+            else showToast('请先选择文件', 'error');
+        });
+        document.getElementById('btnGitPull').addEventListener('click', gitPull);
+        document.getElementById('btnGitPush').addEventListener('click', gitPush);
+        document.getElementById('btnGitConfig').addEventListener('click', showGitConfigModal);
+        document.getElementById('btnTheme').addEventListener('click', toggleTheme);
+        document.getElementById('btnCollapseAll').addEventListener('click', () => {
+            state.collapsedGroups = new Set(Array.from(state.groups));
+            renderFileTree();
+        });
 
-                    const commitMessage = 'Update Markdown files - ' + new Date().toLocaleString();
-                    try {
-                        await git.commit({
-                            fs: state.gitFs,
-                            dir: '/repo',
-                            message: commitMessage,
-                            author: { name: config.owner || 'markdown-user', email: (config.owner ||
-                                    'markdown-user') + '@users.noreply.github.com' },
-                        });
-                    } catch (e) {
-                        if (e.message && e.message.includes('No changes')) {
-                            showToast('没有需要推送的更改', 'info');
-                            return;
-                        }
-                        throw e;
-                    }
+        document.getElementById('btnUndo').addEventListener('click', () => {
+            if (state.editor) state.editor.undo();
+        });
+        document.getElementById('btnRedo').addEventListener('click', () => {
+            if (state.editor) state.editor.redo();
+        });
+        document.getElementById('btnExportSelected').addEventListener('click', exportSelectedFiles);
+        document.getElementById('btnExportAll').addEventListener('click', exportAllFiles);
+        document.getElementById('btnToggleSidebar').addEventListener('click', toggleSidebar);
+        document.getElementById('btnFindReplace').addEventListener('click', openFindReplace);
 
-                    await git.push({
-                        fs: state.gitFs,
-                        http: createHttpClient(config),
-                        dir: '/repo',
-                        url: gitUrl,
-                        remote: 'origin',
-                        ref: config.branch || 'main',
-                        corsProxy: 'https://cors.isomorphic-git.org',
-                        onAuth: () => ({ username: config.owner, password: config.token }),
-                        force: false,
-                    });
-                    showToast('推送成功！', 'success');
-                } catch (e) {
-                    console.error('Push 失败:', e);
-                    let errMsg = e.message || '未知错误';
-                    if (errMsg.includes('Cannot read properties of undefined') || errMsg.includes('Failed to fetch')) {
-                        errMsg = '网络连接失败，请检查网络后重试';
-                    }
-                    showToast('推送失败: ' + errMsg, 'error');
-                }
+        document.getElementById('fileUploadInput').addEventListener('change', (e) => {
+            handleUpload(e.target.files);
+            e.target.value = '';
+        });
+
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            handleSearch(e.target.value);
+        });
+
+        document.querySelectorAll('.editor-tab').forEach(tab => {
+            tab.addEventListener('click', () => setViewMode(tab.dataset.mode));
+        });
+
+        const dropZone = document.getElementById('dropZone');
+        let dragCounter = 0;
+        document.addEventListener('dragenter', (e) => { e.preventDefault();
+            dragCounter++; if (dragCounter === 1) dropZone.classList.add('active'); });
+        document.addEventListener('dragleave', (e) => { e.preventDefault();
+            dragCounter--; if (dragCounter === 0) dropZone.classList.remove('active'); });
+        document.addEventListener('dragover', (e) => e.preventDefault());
+        document.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dragCounter = 0;
+            dropZone.classList.remove('active');
+            if (e.dataTransfer.files.length) handleUpload(e.dataTransfer.files);
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault();
+                saveCurrentFile(); }
+            if ((e.ctrlKey || e.metaKey) && e.key === 'n') { e.preventDefault();
+                showNewFileModal(); }
+        });
+
+        window.addEventListener('beforeunload', () => {
+            localStorage.setItem('md-files', JSON.stringify(state.files));
+            localStorage.setItem('md-groups', JSON.stringify(Array.from(state.groups)));
+            if (state.currentFile && state.editor && state.isDirty) {
+                state.files[state.currentFile].content = state.editor.getValue();
+                state.files[state.currentFile].updatedAt = new Date().toISOString();
+                localStorage.setItem('md-files', JSON.stringify(state.files));
             }
+        });
 
-            // ==================== 导出 ====================
-            function exportSelectedFiles() {
-                const selectedPaths = Array.from(state.selectedPaths);
-                if (selectedPaths.length === 0) {
-                    showToast('请先选择文件（点击文件或 Ctrl+点击多选）', 'error');
-                    return;
-                }
-                if (selectedPaths.length === 1) {
-                    const path = selectedPaths[0];
-                    const file = state.files[path];
-                    if (!file) return;
-                    const blob = new Blob([file.content], { type: 'text/markdown' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = file.name;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                    showToast(`已导出: ${file.name}`, 'success');
-                } else {
-                    exportFilesAsZip(selectedPaths);
-                }
-            }
+        state.editor.on('change', updateStatusBar);
+    }
 
-            function exportAllFiles() {
-                const allPaths = Object.keys(state.files);
-                if (allPaths.length === 0) {
-                    showToast('没有文件可导出', 'error');
-                    return;
-                }
-                exportFilesAsZip(allPaths);
-            }
+    document.addEventListener('DOMContentLoaded', init);
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        init();
+    }
 
-            async function exportFilesAsZip(paths) {
-                if (typeof JSZip === 'undefined') {
-                    showToast('JSZip 库未加载，请检查网络', 'error');
-                    return;
-                }
-                const zip = new JSZip();
-                for (const path of paths) {
-                    const file = state.files[path];
-                    if (!file) continue;
-                    const folder = zip.folder(file.group);
-                    if (folder) {
-                        folder.file(file.name, file.content);
-                    }
-                }
-                const blob = await zip.generateAsync({ type: 'blob' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `markdown-export-${new Date().toISOString().slice(0,10)}.zip`;
-                a.click();
-                URL.revokeObjectURL(url);
-                showToast(`已打包导出 ${paths.length} 个文件`, 'success');
-            }
-
-            // ==================== 侧边栏 ====================
-            function toggleSidebar() {
-                state.sidebarCollapsed = !state.sidebarCollapsed;
-                localStorage.setItem('md-sidebar-collapsed', state.sidebarCollapsed);
-                applySidebarState();
-            }
-
-            function applySidebarState() {
-                const sidebar = document.getElementById('sidebar');
-                if (state.sidebarCollapsed) {
-                    sidebar.classList.add('collapsed');
-                } else {
-                    sidebar.classList.remove('collapsed');
-                }
-                if (state.editor) {
-                    setTimeout(() => state.editor.refresh(), 300);
-                }
-            }
-
-            // ==================== 状态栏 ====================
-            function updateStatusBar() {
-                const fileEl = document.getElementById('statusFile');
-                const charsEl = document.getElementById('statusChars');
-                const searchEl = document.getElementById('statusSearch');
-                if (state.currentFile && state.files[state.currentFile]) {
-                    const file = state.files[state.currentFile];
-                    fileEl.textContent = `📄 ${file.group}/${file.name}` + (state.isDirty ? ' ●' : '');
-                } else {
-                    fileEl.textContent = '未选择文件';
-                }
-                const content = state.editor ? state.editor.getValue() : '';
-                charsEl.textContent = `${content.length} 字符`;
-                if (state.searchQuery) {
-                    searchEl.textContent = `🔍 搜索: "${state.searchQuery}"`;
-                } else {
-                    searchEl.textContent = '';
-                }
-            }
-
-            // ==================== 编辑器快捷键 ====================
-            function toggleBold() {
-                const editor = state.editor;
-                if (!editor) return;
-                const sel = editor.getSelection();
-                if (sel) {
-                    editor.replaceSelection(`**${sel}**`);
-                } else {
-                    const cursor = editor.getCursor();
-                    editor.replaceRange('****', cursor);
-                    editor.setCursor({ line: cursor.line, ch: cursor.ch + 2 });
-                }
-                editor.focus();
-            }
-
-            function toggleItalic() {
-                const editor = state.editor;
-                if (!editor) return;
-                const sel = editor.getSelection();
-                if (sel) {
-                    editor.replaceSelection(`*${sel}*`);
-                } else {
-                    const cursor = editor.getCursor();
-                    editor.replaceRange('**', cursor);
-                    editor.setCursor({ line: cursor.line, ch: cursor.ch + 1 });
-                }
-                editor.focus();
-            }
-
-            // ==================== 视图模式 ====================
-            function setViewMode(mode) {
-                state.viewMode = mode;
-                const editorPane = document.getElementById('editorPane');
-                const previewPane = document.getElementById('previewPane');
-                const tabs = document.querySelectorAll('.editor-tab');
-                tabs.forEach(tab => {
-                    tab.classList.toggle('active', tab.dataset.mode === mode);
-                });
-                if (mode === 'edit') {
-                    editorPane.style.display = 'flex';
-                    previewPane.style.display = 'none';
-                    editorPane.style.flex = '1';
-                } else if (mode === 'preview') {
-                    editorPane.style.display = 'none';
-                    previewPane.style.display = 'flex';
-                    previewPane.style.flex = '1';
-                    updatePreview();
-                } else {
-                    editorPane.style.display = 'flex';
-                    previewPane.style.display = 'flex';
-                    editorPane.style.flex = '1';
-                    previewPane.style.flex = '1';
-                    updatePreview();
-                }
-                if (state.editor) {
-                    state.editor.refresh();
-                }
-            }
-
-            // ==================== 搜索 ====================
-            function handleSearch(query) {
-                state.searchQuery = query.trim().toLowerCase();
-                if (!state.searchQuery) {
-                    clearSearchHighlights();
-                }
-                renderFileTree();
-                updateStatusBar();
-                if (state.currentFile && state.searchQuery) {
-                    highlightSearchInEditor(state.searchQuery);
-                } else if (state.currentFile && !state.searchQuery) {
-                    clearSearchHighlights();
-                }
-            }
-
-            function highlightSearchInEditor(query) {
-                clearSearchHighlights();
-                if (!query || !state.editor) return;
-                const cursor = state.editor.getSearchCursor(query, { line: 0, ch: 0 }, { caseFold: true });
-                let firstMatch = null;
-                while (cursor.findNext()) {
-                    const from = cursor.from();
-                    const to = cursor.to();
-                    const marker = state.editor.markText(from, to, { className: 'cm-search-match' });
-                    state.searchMarkers.push(marker);
-                    if (!firstMatch) {
-                        firstMatch = { from, to };
-                    }
-                }
-                if (firstMatch) {
-                    state.editor.setSelection(firstMatch.from, firstMatch.to);
-                    state.editor.scrollIntoView(firstMatch.from, 50);
-                }
-            }
-
-            function clearSearchHighlights() {
-                state.searchMarkers.forEach(marker => marker.clear());
-                state.searchMarkers = [];
-            }
-
-            // ==================== 查找替换 ====================
-            function openFindReplace() {
-                if (state.frModalOverlay) {
-                    state.frModalOverlay.querySelector('#fr-search-input').focus();
-                    return;
-                }
-                if (!state.editor) return;
-
-                const overlay = document.createElement('div');
-                overlay.className = 'modal-overlay find-replace-modal';
-                overlay.innerHTML = `
-                    <div class="modal">
-                        <h3>🔍 查找替换</h3>
-                        <div class="fr-input-group">
-                            <input type="text" id="fr-search-input" placeholder="查找内容">
-                            <input type="text" id="fr-replace-input" placeholder="替换为">
-                        </div>
-                        <div class="fr-info" id="fr-info"></div>
-                        <div class="fr-results" id="fr-results"></div>
-                        <div class="fr-actions">
-                            <button class="btn" id="fr-prev"><i class="fas fa-arrow-up"></i> 上一个</button>
-                            <button class="btn" id="fr-next"><i class="fas fa-arrow-down"></i> 下一个</button>
-                            <button class="btn primary" id="fr-replace-one"><i class="fas fa-sync"></i> 替换选中</button>
-                            <button class="btn danger" id="fr-replace-all"><i class="fas fa-bolt"></i> 全部替换</button>
-                            <button class="btn" id="fr-close"><i class="fas fa-times"></i> 关闭</button>
-                        </div>
-                    </div>
-                `;
-                document.body.appendChild(overlay);
-                state.frModalOverlay = overlay;
-
-                const searchInput = overlay.querySelector('#fr-search-input');
-                const replaceInput = overlay.querySelector('#fr-replace-input');
-
-                overlay.querySelector('#fr-close').addEventListener('click', closeFindReplace);
-                overlay.addEventListener('click', (e) => {
-                    if (e.target === overlay) closeFindReplace();
-                });
-
-                searchInput.addEventListener('input', () => {
-                    performFindReplaceSearch(searchInput.value, replaceInput.value);
-                });
-
-                overlay.querySelector('#fr-prev').addEventListener('click', () => navigateMatch(-1));
-                overlay.querySelector('#fr-next').addEventListener('click', () => navigateMatch(1));
-                overlay.querySelector('#fr-replace-one').addEventListener('click', () => replaceCurrentMatch());
-                overlay.querySelector('#fr-replace-all').addEventListener('click', () => replaceAllMatches());
-
-                setTimeout(() => searchInput.focus(), 100);
-            }
-
-            function closeFindReplace() {
-                if (state.frModalOverlay) {
-                    state.frModalOverlay.remove();
-                    state.frModalOverlay = null;
-                    state.frMatches = [];
-                    state.frCurrentIndex = -1;
-                }
-            }
-
-            function performFindReplaceSearch(searchTerm, replaceTerm) {
-                state.frSearchTerm = searchTerm;
-                state.frReplaceTerm = replaceTerm;
-                state.frMatches = [];
-                state.frCurrentIndex = -1;
-
-                if (!searchTerm) {
-                    updateFindReplaceUI();
-                    return;
-                }
-
-                const cursor = state.editor.getSearchCursor(searchTerm, { line: 0, ch: 0 }, { caseFold: true });
-                while (cursor.findNext()) {
-                    const from = cursor.from();
-                    const to = cursor.to();
-                    const line = from.line;
-                    const lineText = state.editor.getLine(line);
-                    const start = Math.max(0, from.ch - 20);
-                    const end = Math.min(lineText.length, to.ch + 20);
-                    const context = lineText.substring(start, end);
-                    state.frMatches.push({
-                        from: from,
-                        to: to,
-                        line: line + 1,
-                        context: context,
-                        startOffset: from.ch - start,
-                        endOffset: to.ch - start
-                    });
-                }
-
-                if (state.frMatches.length > 0) {
-                    state.frCurrentIndex = 0;
-                    clearSearchHighlights();
-                    state.frMatches.forEach(match => {
-                        const marker = state.editor.markText(match.from, match.to, { className: 'cm-search-match' });
-                        state.searchMarkers.push(marker);
-                    });
-                    selectMatch(0);
-                } else {
-                    clearSearchHighlights();
-                }
-
-                updateFindReplaceUI();
-            }
-
-            function updateFindReplaceUI() {
-                if (!state.frModalOverlay) return;
-                const resultsDiv = state.frModalOverlay.querySelector('#fr-results');
-                const infoDiv = state.frModalOverlay.querySelector('#fr-info');
-
-                if (state.frMatches.length === 0) {
-                    infoDiv.textContent = state.frSearchTerm ? '未找到匹配项' : '';
-                } else {
-                    infoDiv.textContent = `找到 ${state.frMatches.length} 个匹配项，当前第 ${state.frCurrentIndex + 1} 个`;
-                }
-
-                resultsDiv.innerHTML = '';
-                state.frMatches.forEach((match, index) => {
-                    const item = document.createElement('div');
-                    item.className = 'fr-result-item' + (index === state.frCurrentIndex ? ' active' : '');
-                    const before = match.context.substring(0, match.startOffset);
-                    const matched = match.context.substring(match.startOffset, match.endOffset);
-                    const after = match.context.substring(match.endOffset);
-                    const highlightedContext = escapeHtml(before) + `<mark>${escapeHtml(matched)}</mark>` + escapeHtml(
-                        after);
-                    item.innerHTML = `
-                        <span class="fr-line">${match.line}</span>
-                        <span class="fr-context">${highlightedContext}</span>
-                    `;
-                    item.addEventListener('click', () => {
-                        selectMatch(index);
-                    });
-                    resultsDiv.appendChild(item);
-                });
-            }
-
-            function selectMatch(index) {
-                if (index < 0 || index >= state.frMatches.length) return;
-                state.frCurrentIndex = index;
-                const match = state.frMatches[index];
-                state.editor.setSelection(match.from, match.to);
-                state.editor.scrollIntoView(match.from, 50);
-                updateFindReplaceUI();
-            }
-
-            function navigateMatch(direction) {
-                if (state.frMatches.length === 0) return;
-                let newIndex = state.frCurrentIndex + direction;
-                if (newIndex < 0) newIndex = state.frMatches.length - 1;
-                if (newIndex >= state.frMatches.length) newIndex = 0;
-                selectMatch(newIndex);
-            }
-
-            function replaceCurrentMatch() {
-                if (!state.frModalOverlay || state.frMatches.length === 0) return;
-                const match = state.frMatches[state.frCurrentIndex];
-                if (!match) return;
-                const replaceTerm = state.frModalOverlay.querySelector('#fr-replace-input').value;
-                state.editor.replaceRange(replaceTerm, match.from, match.to);
-                performFindReplaceSearch(state.frSearchTerm, replaceTerm);
-                if (state.currentFile) {
-                    state.files[state.currentFile].content = state.editor.getValue();
-                    state.files[state.currentFile].updatedAt = new Date().toISOString();
-                    state.isDirty = true;
-                    updateStatusBar();
-                }
-            }
-
-            function replaceAllMatches() {
-                if (!state.frModalOverlay || state.frMatches.length === 0) return;
-                const replaceTerm = state.frModalOverlay.querySelector('#fr-replace-input').value;
-                for (let i = state.frMatches.length - 1; i >= 0; i--) {
-                    const match = state.frMatches[i];
-                    state.editor.replaceRange(replaceTerm, match.from, match.to);
-                }
-                performFindReplaceSearch(state.frSearchTerm, replaceTerm);
-                if (state.currentFile) {
-                    state.files[state.currentFile].content = state.editor.getValue();
-                    state.files[state.currentFile].updatedAt = new Date().toISOString();
-                    state.isDirty = true;
-                    updateStatusBar();
-                }
-                showToast(`已替换 ${state.frMatches.length} 处`, 'success');
-            }
-
-            // ==================== 主题 ====================
-            function toggleTheme() {
-                state.theme = state.theme === 'light' ? 'dark' : 'light';
-                localStorage.setItem('md-theme', state.theme);
-                applyTheme();
-                const icon = document.getElementById('themeIcon');
-                icon.className = state.theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
-            }
-
-            function applyTheme() {
-                document.documentElement.setAttribute('data-theme', state.theme);
-                if (state.editor) {
-                    state.editor.setOption('theme', state.theme === 'dark' ? 'material-darker' : 'one-light');
-                }
-                const hljsDark = document.getElementById('hljs-dark');
-                const hljsLight = document.getElementById('hljs-light');
-                if (state.theme === 'dark') {
-                    hljsDark.disabled = false;
-                    hljsLight.disabled = true;
-                } else {
-                    hljsDark.disabled = true;
-                    hljsLight.disabled = false;
-                }
-                const icon = document.getElementById('themeIcon');
-                if (icon) {
-                    icon.className = state.theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
-                }
-            }
-
-            // ==================== 上传 ====================
-            function handleUpload(files) {
-                const group = state.currentGroup || '默认';
-                let count = 0;
-                const total = files.length;
-                Array.from(files).forEach(file => {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const content = e.target.result;
-                        const name = file.name || 'uploaded.md';
-                        const cleanName = name.endsWith('.md') || name.endsWith('.markdown') || name.endsWith(
-                            '.txt') ? name : name + '.md';
-                        const path = `${group}/${cleanName}`;
-                        let finalPath = path;
-                        let counter = 1;
-                        while (state.files[finalPath]) {
-                            const ext = cleanName.includes('.') ? '.' + cleanName.split('.').pop() : '';
-                            const base = cleanName.replace(/\.[^.]+$/, '');
-                            finalPath = `${group}/${base}_${counter}${ext}`;
-                            counter++;
-                        }
-                        if (!state.groups.has(group)) state.groups.add(group);
-                        state.files[finalPath] = {
-                            name: finalPath.split('/').pop(),
-                            group: group,
-                            content: content,
-                            createdAt: new Date().toISOString(),
-                            updatedAt: new Date().toISOString(),
-                        };
-                        syncToGitFs(finalPath, content);
-                        count++;
-                        if (count === total) {
-                            renderFileTree();
-                            updateStatusBar();
-                            showToast(`成功上传 ${count} 个文件`, 'success');
-                        }
-                    };
-                    reader.readAsText(file);
-                });
-            }
-
-            // ==================== 初始化 ====================
-            async function init() {
-                state.hljs = window.hljs;
-                initMarkdown();
-                initEditor();
-                applyTheme();
-                setViewMode('split');
-                applySidebarState();
-
-                const savedFiles = localStorage.getItem('md-files');
-                if (savedFiles) {
-                    try {
-                        state.files = JSON.parse(savedFiles);
-                        Object.values(state.files).forEach(f => {
-                            if (f.group && !state.groups.has(f.group)) {
-                                state.groups.add(f.group);
-                            }
-                        });
-                    } catch (e) {}
-                }
-                const savedGroups = localStorage.getItem('md-groups');
-                if (savedGroups) {
-                    try {
-                        const groups = JSON.parse(savedGroups);
-                        groups.forEach(g => state.groups.add(g));
-                    } catch (e) {}
-                }
-                if (!state.groups.has('默认')) state.groups.add('默认');
-
-                renderFileTree();
-                updateStatusBar();
-
-                setTimeout(() => {
-                    initGitFs();
-                }, 500);
-
-                setInterval(() => {
-                    localStorage.setItem('md-files', JSON.stringify(state.files));
-                    localStorage.setItem('md-groups', JSON.stringify(Array.from(state.groups)));
-                }, 5000);
-
-                bindEvents();
-                showToast('欢迎使用 Markdown 笔记 v1.5', 'info');
-            }
-
-            function bindEvents() {
-                document.getElementById('btnNewFile').addEventListener('click', () => showNewFileModal());
-                document.getElementById('btnNewGroup').addEventListener('click', () => showNewGroupModal());
-                document.getElementById('btnUpload').addEventListener('click', () => document.getElementById(
-                    'fileUploadInput').click());
-                document.getElementById('btnSave').addEventListener('click', saveCurrentFile);
-                document.getElementById('btnRename').addEventListener('click', () => {
-                    if (state.currentFile) showRenameModal(state.currentFile);
-                    else showToast('请先选择文件', 'error');
-                });
-                document.getElementById('btnDelete').addEventListener('click', () => {
-                    if (state.currentFile) deleteFile(state.currentFile);
-                    else showToast('请先选择文件', 'error');
-                });
-                document.getElementById('btnGitPull').addEventListener('click', gitPull);
-                document.getElementById('btnGitPush').addEventListener('click', gitPush);
-                document.getElementById('btnGitConfig').addEventListener('click', showGitConfigModal);
-                document.getElementById('btnTheme').addEventListener('click', toggleTheme);
-                document.getElementById('btnCollapseAll').addEventListener('click', () => {
-                    state.collapsedGroups = new Set(Array.from(state.groups));
-                    renderFileTree();
-                });
-
-                document.getElementById('btnUndo').addEventListener('click', () => {
-                    if (state.editor) state.editor.undo();
-                });
-                document.getElementById('btnRedo').addEventListener('click', () => {
-                    if (state.editor) state.editor.redo();
-                });
-                document.getElementById('btnExportSelected').addEventListener('click', exportSelectedFiles);
-                document.getElementById('btnExportAll').addEventListener('click', exportAllFiles);
-                document.getElementById('btnToggleSidebar').addEventListener('click', toggleSidebar);
-                document.getElementById('btnFindReplace').addEventListener('click', openFindReplace);
-
-                document.getElementById('fileUploadInput').addEventListener('change', (e) => {
-                    handleUpload(e.target.files);
-                    e.target.value = '';
-                });
-
-                document.getElementById('searchInput').addEventListener('input', (e) => {
-                    handleSearch(e.target.value);
-                });
-
-                document.querySelectorAll('.editor-tab').forEach(tab => {
-                    tab.addEventListener('click', () => setViewMode(tab.dataset.mode));
-                });
-
-                const dropZone = document.getElementById('dropZone');
-                let dragCounter = 0;
-                document.addEventListener('dragenter', (e) => { e.preventDefault();
-                    dragCounter++; if (dragCounter === 1) dropZone.classList.add('active'); });
-                document.addEventListener('dragleave', (e) => { e.preventDefault();
-                    dragCounter--; if (dragCounter === 0) dropZone.classList.remove('active'); });
-                document.addEventListener('dragover', (e) => e.preventDefault());
-                document.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    dragCounter = 0;
-                    dropZone.classList.remove('active');
-                    if (e.dataTransfer.files.length) handleUpload(e.dataTransfer.files);
-                });
-
-                document.addEventListener('keydown', (e) => {
-                    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault();
-                        saveCurrentFile(); }
-                    if ((e.ctrlKey || e.metaKey) && e.key === 'n') { e.preventDefault();
-                        showNewFileModal(); }
-                });
-
-                window.addEventListener('beforeunload', () => {
-                    localStorage.setItem('md-files', JSON.stringify(state.files));
-                    localStorage.setItem('md-groups', JSON.stringify(Array.from(state.groups)));
-                    if (state.currentFile && state.editor && state.isDirty) {
-                        state.files[state.currentFile].content = state.editor.getValue();
-                        state.files[state.currentFile].updatedAt = new Date().toISOString();
-                        localStorage.setItem('md-files', JSON.stringify(state.files));
-                    }
-                });
-
-                state.editor.on('change', updateStatusBar);
-            }
-
-            document.addEventListener('DOMContentLoaded', init);
-            if (document.readyState === 'complete' || document.readyState === 'interactive') {
-                init();
-            }
-
-        })();
+})();
     </script>
 </body>
 </html>

@@ -2428,14 +2428,28 @@
                                 .owner || 'markdown-user') + '@users.noreply.github.com' });
                     }
 
-                    try {
-                        const remotes = await git.listRemotes({ fs: state.gitFs, dir: '/repo' });
-                        if (!remotes.some(r => r.url === gitUrl)) {
-                            await git.addRemote({ fs: state.gitFs, dir: '/repo', remote: 'origin', url: gitUrl });
-                        }
-                    } catch (e) {
-                        await git.addRemote({ fs: state.gitFs, dir: '/repo', remote: 'origin', url: gitUrl });
-                    }
+try {
+    const remotes = await git.listRemotes({ fs: state.gitFs, dir: '/repo' });
+    // 可以保留检查，但最后添加时用 force: true 保证安全
+    if (!remotes.some(r => r.url === gitUrl)) {
+        await git.addRemote({ 
+            fs: state.gitFs, 
+            dir: '/repo', 
+            remote: 'origin', 
+            url: gitUrl,
+            force: true   // ✅ 加上这个参数
+        });
+    }
+} catch (e) {
+    // 如果 listRemotes 失败，直接强制添加
+    await git.addRemote({ 
+        fs: state.gitFs, 
+        dir: '/repo', 
+        remote: 'origin', 
+        url: gitUrl,
+        force: true
+    });
+}
 
                     const result = await git.pull({
                         fs: state.gitFs,
@@ -2492,14 +2506,26 @@
                                 .owner || 'markdown-user') + '@users.noreply.github.com' });
                     }
 
-                    try {
-                        const remotes = await git.listRemotes({ fs: state.gitFs, dir: '/repo' });
-                        if (!remotes.some(r => r.url === gitUrl)) {
-                            await git.addRemote({ fs: state.gitFs, dir: '/repo', remote: 'origin', url: gitUrl });
-                        }
-                    } catch (e) {
-                        await git.addRemote({ fs: state.gitFs, dir: '/repo', remote: 'origin', url: gitUrl });
-                    }
+try {
+    const remotes = await git.listRemotes({ fs: state.gitFs, dir: '/repo' });
+    if (!remotes.some(r => r.url === gitUrl)) {
+        await git.addRemote({ 
+            fs: state.gitFs, 
+            dir: '/repo', 
+            remote: 'origin', 
+            url: gitUrl,
+            force: true
+        });
+    }
+} catch (e) {
+    await git.addRemote({ 
+        fs: state.gitFs, 
+        dir: '/repo', 
+        remote: 'origin', 
+        url: gitUrl,
+        force: true
+    });
+}
 
                     const files = await state.gitFs.promises.readdir('/repo');
                     for (const file of files) {

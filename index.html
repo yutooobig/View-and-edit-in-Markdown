@@ -2,8 +2,8 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Markdown 笔记 v1.2</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Markdown 笔记 v1.3</title>
 
     <!-- CodeMirror 5 CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
@@ -14,7 +14,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" id="hljs-dark">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.min.css" id="hljs-light" disabled>
 
-    <!-- 应用样式 -->
+    <!-- Font Awesome 6 (免费图标库) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
     <style>
         :root {
             --bg: #f5f7fa;
@@ -40,6 +42,10 @@
             --transition: 0.2s ease;
             --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
             --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --toolbar-height: 52px;
+            --status-height: 28px;
         }
 
         [data-theme="dark"] {
@@ -70,55 +76,104 @@
             background: var(--bg);
             color: var(--text);
             height: 100vh;
+            height: 100dvh;
             overflow: hidden;
             display: flex;
             flex-direction: column;
             transition: background var(--transition), color var(--transition);
             font-size: 14px;
             line-height: 1.6;
+            padding-top: var(--safe-top);
+            padding-bottom: var(--safe-bottom);
         }
 
-        /* 顶部工具栏 */
+        /* ===== 顶部工具栏 ===== */
         .toolbar {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 10px 16px;
+            gap: 4px;
+            padding: 6px 10px;
             background: var(--bg-toolbar);
             border-bottom: 1px solid var(--border);
             flex-shrink: 0;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             z-index: 100;
             box-shadow: var(--shadow-sm);
             transition: background var(--transition);
+            min-height: var(--toolbar-height);
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
         }
+        .toolbar::-webkit-scrollbar { display: none; }
+
         .toolbar .logo {
             font-weight: 700;
-            font-size: 16px;
+            font-size: 15px;
             color: var(--accent);
-            margin-right: 12px;
-            letter-spacing: 0.5px;
+            margin-right: 6px;
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 4px;
             user-select: none;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
         .toolbar .logo svg {
-            width: 22px;
-            height: 22px;
+            width: 20px;
+            height: 20px;
         }
         .toolbar .sep {
             width: 1px;
-            height: 24px;
+            height: 22px;
             background: var(--border);
-            margin: 0 4px;
+            margin: 0 2px;
             flex-shrink: 0;
         }
+
+        /* 按钮组 — 滚动容器，按钮自动换行 */
+        .toolbar-btn-group {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            flex-shrink: 0;
+            flex-wrap: nowrap;
+        }
+        .toolbar-btn-group .btn {
+            padding: 5px 8px;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        .toolbar-btn-group .btn .btn-icon {
+            font-size: 13px;
+        }
+        .toolbar-btn-group .btn .btn-text {
+            display: inline;
+        }
+
+        /* 移动端按钮文字隐藏 */
+        @media (max-width: 600px) {
+            .toolbar-btn-group .btn .btn-text {
+                display: none;
+            }
+            .toolbar-btn-group .btn {
+                padding: 6px 8px;
+                font-size: 13px;
+            }
+            .toolbar .logo span {
+                display: none;
+            }
+            .toolbar .logo {
+                font-size: 18px;
+                margin-right: 2px;
+            }
+        }
+
         .btn {
             display: inline-flex;
             align-items: center;
-            gap: 5px;
-            padding: 7px 14px;
+            gap: 4px;
+            padding: 6px 12px;
             border: 1px solid var(--border);
             border-radius: var(--radius-sm);
             background: var(--bg);
@@ -132,6 +187,7 @@
             text-decoration: none;
             font-weight: 500;
             letter-spacing: 0.2px;
+            flex-shrink: 0;
         }
         .btn:hover {
             border-color: var(--accent);
@@ -139,7 +195,7 @@
             background: var(--accent-light);
         }
         .btn:active {
-            transform: scale(0.96);
+            transform: scale(0.94);
         }
         .btn.primary {
             background: var(--accent);
@@ -167,7 +223,7 @@
             background: rgba(39, 174, 96, 0.1);
         }
         .btn.sm {
-            padding: 4px 10px;
+            padding: 4px 8px;
             font-size: 12px;
         }
         .btn:disabled {
@@ -176,28 +232,73 @@
             pointer-events: none;
         }
 
-        /* 主布局 */
+        /* 右侧控制区（搜索、主题切换） */
+        .toolbar-right {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+            margin-left: auto;
+        }
+        .toolbar-right .search-input {
+            width: 120px;
+            padding: 5px 10px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-family: var(--font-sans);
+            background: var(--bg);
+            color: var(--text);
+            outline: none;
+            transition: all 0.2s;
+            min-width: 60px;
+        }
+        .toolbar-right .search-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.15);
+            width: 150px;
+        }
+        @media (max-width: 500px) {
+            .toolbar-right .search-input {
+                width: 80px;
+                font-size: 11px;
+                padding: 4px 6px;
+            }
+            .toolbar-right .search-input:focus {
+                width: 110px;
+            }
+        }
+
+        /* ===== 主布局 ===== */
         .main-container {
             display: flex;
             flex: 1;
             overflow: hidden;
             gap: 0;
+            min-height: 0;
         }
 
-        /* 侧边栏 - 文件树 */
+        /* ===== 侧边栏 ===== */
         .sidebar {
-            width: 280px;
-            min-width: 200px;
-            max-width: 400px;
+            width: 260px;
+            min-width: 180px;
+            max-width: 360px;
             background: var(--bg-sidebar);
             border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
-            transition: background var(--transition);
+            transition: width 0.25s ease, min-width 0.25s ease, max-width 0.25s ease, background var(--transition);
             flex-shrink: 0;
+            overflow: hidden;
+        }
+        .sidebar.collapsed {
+            width: 0 !important;
+            min-width: 0 !important;
+            max-width: 0 !important;
+            border-right: none;
         }
         .sidebar-header {
-            padding: 12px 14px;
+            padding: 10px 12px;
             border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
@@ -206,20 +307,21 @@
         }
         .sidebar-header .title {
             font-weight: 600;
-            font-size: 13px;
+            font-size: 12px;
             color: var(--text-secondary);
             text-transform: uppercase;
-            letter-spacing: 0.6px;
+            letter-spacing: 0.5px;
         }
         .file-tree {
             flex: 1;
             overflow-y: auto;
-            padding: 8px 6px;
+            padding: 6px 4px;
             scrollbar-width: thin;
             scrollbar-color: var(--border) transparent;
+            -webkit-overflow-scrolling: touch;
         }
         .file-tree::-webkit-scrollbar {
-            width: 5px;
+            width: 4px;
         }
         .file-tree::-webkit-scrollbar-thumb {
             background: var(--border);
@@ -229,81 +331,7 @@
             background: transparent;
         }
 
-        /* 树形结构 */
-        .tree-node {
-            user-select: none;
-        }
-        .tree-node .node-row {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 8px;
-            border-radius: var(--radius-sm);
-            cursor: pointer;
-            transition: all 0.15s ease;
-            font-size: 13px;
-            position: relative;
-        }
-        .tree-node .node-row:hover {
-            background: var(--accent-light);
-        }
-        .tree-node .node-row.active {
-            background: var(--accent);
-            color: #fff;
-        }
-        .tree-node .node-row.active .node-icon {
-            color: #fff;
-        }
-        .tree-node .node-icon {
-            width: 18px;
-            height: 18px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            color: var(--text-secondary);
-            font-size: 14px;
-        }
-        .tree-node .node-name {
-            flex: 1;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            font-weight: 400;
-        }
-        .tree-node .node-badge {
-            font-size: 10px;
-            padding: 1px 6px;
-            border-radius: 10px;
-            background: var(--border);
-            color: var(--text-secondary);
-            flex-shrink: 0;
-            font-weight: 600;
-        }
-        .tree-node .node-children {
-            margin-left: 18px;
-            border-left: 1px solid var(--border);
-            padding-left: 4px;
-        }
-        .tree-node .node-children.collapsed {
-            display: none;
-        }
-        .tree-node .toggle-arrow {
-            font-size: 9px;
-            transition: transform 0.2s ease;
-            flex-shrink: 0;
-            color: var(--text-light);
-            width: 14px;
-            text-align: center;
-        }
-        .tree-node .toggle-arrow.expanded {
-            transform: rotate(90deg);
-        }
-        .tree-node .toggle-arrow.leaf {
-            visibility: hidden;
-        }
-
-        /* 编辑器区域 */
+        /* ===== 编辑器区域 ===== */
         .editor-container {
             flex: 1;
             display: flex;
@@ -314,18 +342,18 @@
         .editor-tabs {
             display: flex;
             align-items: center;
-            padding: 0 12px;
+            padding: 0 8px;
             border-bottom: 1px solid var(--border);
             background: var(--bg-toolbar);
             flex-shrink: 0;
             gap: 2px;
-            min-height: 40px;
+            min-height: 34px;
             transition: background var(--transition);
         }
         .editor-tab {
-            padding: 8px 14px;
+            padding: 6px 12px;
             cursor: pointer;
-            font-size: 13px;
+            font-size: 12px;
             border-bottom: 2px solid transparent;
             color: var(--text-secondary);
             transition: all 0.15s ease;
@@ -333,7 +361,7 @@
             user-select: none;
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 4px;
         }
         .editor-tab:hover {
             color: var(--text);
@@ -346,6 +374,7 @@
             flex: 1;
             display: flex;
             overflow: hidden;
+            min-height: 0;
         }
         .editor-pane {
             flex: 1;
@@ -358,19 +387,20 @@
             border-right: none;
         }
         .pane-header {
-            padding: 6px 14px;
-            font-size: 11px;
+            padding: 4px 12px;
+            font-size: 10px;
             font-weight: 600;
             color: var(--text-secondary);
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.4px;
             border-bottom: 1px solid var(--border);
             flex-shrink: 0;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             background: var(--bg);
             transition: background var(--transition);
+            min-height: 26px;
         }
         .CodeMirror {
             flex: 1;
@@ -385,14 +415,15 @@
         .preview-pane {
             flex: 1;
             overflow-y: auto;
-            padding: 20px 24px;
+            padding: 16px 18px;
             background: var(--bg-preview);
             transition: background var(--transition);
             scrollbar-width: thin;
             scrollbar-color: var(--border) transparent;
+            -webkit-overflow-scrolling: touch;
         }
         .preview-pane::-webkit-scrollbar {
-            width: 5px;
+            width: 4px;
         }
         .preview-pane::-webkit-scrollbar-thumb {
             background: var(--border);
@@ -402,7 +433,217 @@
             background: transparent;
         }
 
-        /* Markdown 预览样式 */
+        /* ===== 状态栏 ===== */
+        .status-bar {
+            padding: 2px 12px;
+            font-size: 10px;
+            color: var(--text-light);
+            border-top: 1px solid var(--border);
+            background: var(--bg-toolbar);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+            transition: background var(--transition);
+            user-select: none;
+            min-height: var(--status-height);
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        .status-bar::-webkit-scrollbar { display: none; }
+        .status-bar .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--success);
+            display: inline-block;
+            animation: pulse 2s infinite;
+            flex-shrink: 0;
+        }
+        .status-bar span {
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+
+        /* ===== 响应式：移动端优先 ===== */
+        @media (max-width: 768px) {
+            :root {
+                --toolbar-height: 46px;
+                --status-height: 24px;
+            }
+            .sidebar {
+                width: 200px;
+                min-width: 140px;
+                max-width: 280px;
+            }
+            .toolbar {
+                padding: 4px 6px;
+                gap: 2px;
+                min-height: var(--toolbar-height);
+            }
+            .toolbar .logo {
+                font-size: 13px;
+                margin-right: 2px;
+            }
+            .toolbar .logo svg {
+                width: 16px;
+                height: 16px;
+            }
+            .toolbar .sep {
+                height: 18px;
+                margin: 0 1px;
+            }
+            .btn {
+                padding: 4px 6px;
+                font-size: 11px;
+                border-radius: 4px;
+            }
+            .btn .btn-text {
+                display: none !important;
+            }
+            .btn .btn-icon {
+                font-size: 14px;
+            }
+            .toolbar-btn-group .btn {
+                padding: 5px 6px;
+            }
+            .editor-content {
+                flex-direction: column;
+            }
+            .editor-pane {
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+                flex: none;
+                height: 50%;
+            }
+            .editor-pane:last-child {
+                border-bottom: none;
+                flex: 1;
+            }
+            .preview-pane {
+                padding: 12px 14px;
+            }
+            .CodeMirror {
+                font-size: 13px;
+            }
+            .markdown-body {
+                font-size: 14px;
+            }
+            .status-bar {
+                font-size: 9px;
+                padding: 2px 8px;
+                gap: 8px;
+                min-height: var(--status-height);
+            }
+            /* 移动端侧边栏默认收起 */
+            .sidebar:not(.collapsed) {
+                width: 200px !important;
+                min-width: 140px !important;
+                max-width: 280px !important;
+            }
+            .toolbar-right .search-input {
+                width: 70px;
+                font-size: 11px;
+                padding: 3px 6px;
+            }
+            .toolbar-right .search-input:focus {
+                width: 100px;
+            }
+            .modal {
+                width: 95vw;
+                padding: 16px;
+                max-height: 90vh;
+                border-radius: 10px;
+            }
+            .find-replace-modal .modal {
+                width: 100vw;
+                max-width: 100vw;
+                height: 100vh;
+                max-height: 100vh;
+                border-radius: 0;
+                padding: 12px;
+            }
+            .find-replace-modal .fr-input-group {
+                flex-direction: column;
+            }
+            .find-replace-modal .fr-input-group input {
+                width: 100%;
+            }
+            .find-replace-modal .fr-results {
+                max-height: 35vh;
+            }
+            .find-replace-modal .fr-actions .btn {
+                flex: 1;
+                text-align: center;
+                padding: 10px;
+                font-size: 12px;
+            }
+            /* 树节点触摸优化 */
+            .tree-node .node-row {
+                padding: 8px 6px;
+                min-height: 36px;
+            }
+            .tree-node .node-row .node-icon {
+                font-size: 15px;
+            }
+            .tree-node .node-row .node-name {
+                font-size: 13px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            :root {
+                --toolbar-height: 42px;
+            }
+            .toolbar .logo span {
+                display: none;
+            }
+            .toolbar .logo {
+                font-size: 16px;
+            }
+            .btn {
+                padding: 3px 5px;
+                font-size: 10px;
+            }
+            .btn .btn-icon {
+                font-size: 13px;
+            }
+            .sidebar {
+                width: 160px;
+                min-width: 120px;
+                max-width: 220px;
+            }
+            .sidebar:not(.collapsed) {
+                width: 160px !important;
+                min-width: 120px !important;
+            }
+            .CodeMirror {
+                font-size: 12px;
+            }
+            .preview-pane {
+                padding: 10px 12px;
+            }
+            .markdown-body {
+                font-size: 13px;
+            }
+            .status-bar {
+                font-size: 8px;
+                padding: 1px 6px;
+                gap: 6px;
+            }
+            .toolbar-right .search-input {
+                width: 55px;
+                font-size: 10px;
+                padding: 2px 4px;
+            }
+            .toolbar-right .search-input:focus {
+                width: 80px;
+            }
+        }
+
+        /* ===== 其余通用样式 ===== */
         .markdown-body {
             font-size: 15px;
             line-height: 1.8;
@@ -416,27 +657,27 @@
         .markdown-body h4,
         .markdown-body h5,
         .markdown-body h6 {
-            margin-top: 24px;
-            margin-bottom: 12px;
+            margin-top: 20px;
+            margin-bottom: 10px;
             font-weight: 700;
             line-height: 1.4;
             color: var(--text);
         }
         .markdown-body h1 {
-            font-size: 2em;
+            font-size: 1.8em;
             border-bottom: 2px solid var(--border);
-            padding-bottom: 8px;
-        }
-        .markdown-body h2 {
-            font-size: 1.5em;
-            border-bottom: 1px solid var(--border);
             padding-bottom: 6px;
         }
+        .markdown-body h2 {
+            font-size: 1.4em;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 4px;
+        }
         .markdown-body h3 {
-            font-size: 1.25em;
+            font-size: 1.2em;
         }
         .markdown-body p {
-            margin: 10px 0;
+            margin: 8px 0;
         }
         .markdown-body a {
             color: var(--accent);
@@ -448,16 +689,16 @@
         }
         .markdown-body ul,
         .markdown-body ol {
-            padding-left: 24px;
-            margin: 10px 0;
+            padding-left: 22px;
+            margin: 8px 0;
         }
         .markdown-body li {
-            margin: 4px 0;
+            margin: 3px 0;
         }
         .markdown-body blockquote {
             border-left: 4px solid var(--accent);
-            padding: 8px 16px;
-            margin: 12px 0;
+            padding: 6px 14px;
+            margin: 10px 0;
             background: var(--accent-light);
             border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
             color: var(--text-secondary);
@@ -465,13 +706,13 @@
         .markdown-body table {
             border-collapse: collapse;
             width: 100%;
-            margin: 12px 0;
-            font-size: 14px;
+            margin: 10px 0;
+            font-size: 13px;
         }
         .markdown-body th,
         .markdown-body td {
             border: 1px solid var(--border);
-            padding: 8px 12px;
+            padding: 6px 10px;
             text-align: left;
         }
         .markdown-body th {
@@ -481,7 +722,7 @@
         .markdown-body hr {
             border: none;
             border-top: 2px solid var(--border);
-            margin: 20px 0;
+            margin: 16px 0;
         }
         .markdown-body img {
             max-width: 100%;
@@ -492,23 +733,23 @@
             font-family: var(--font-mono);
             background: var(--code-bg);
             color: #e06c75;
-            padding: 2px 6px;
+            padding: 2px 5px;
             border-radius: 3px;
             font-size: 0.9em;
         }
         .markdown-body pre {
             position: relative;
-            margin: 14px 0;
+            margin: 12px 0;
             border-radius: var(--radius);
             overflow: hidden;
             box-shadow: var(--shadow-sm);
         }
         .markdown-body pre code {
             display: block;
-            padding: 16px 20px;
+            padding: 14px 18px;
             overflow-x: auto;
-            font-size: 13.5px;
-            line-height: 1.7;
+            font-size: 13px;
+            line-height: 1.6;
             color: var(--code-text);
             background: var(--code-bg);
             border-radius: 0;
@@ -516,10 +757,10 @@
         }
         .copy-btn {
             position: absolute;
-            top: 8px;
-            right: 8px;
-            padding: 4px 10px;
-            font-size: 11px;
+            top: 6px;
+            right: 6px;
+            padding: 3px 8px;
+            font-size: 10px;
             border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 4px;
             background: rgba(255, 255, 255, 0.1);
@@ -527,12 +768,12 @@
             cursor: pointer;
             transition: all 0.2s;
             font-family: var(--font-sans);
-            letter-spacing: 0.3px;
+            letter-spacing: 0.2px;
             z-index: 10;
             user-select: none;
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 3px;
         }
         .copy-btn:hover {
             background: rgba(255, 255, 255, 0.2);
@@ -559,13 +800,14 @@
             justify-content: center;
             animation: fadeIn 0.2s ease;
             backdrop-filter: blur(4px);
+            padding: 16px;
         }
         .modal {
             background: var(--bg);
             border-radius: 12px;
             padding: 24px;
             width: 500px;
-            max-width: 90vw;
+            max-width: 100%;
             max-height: 85vh;
             overflow-y: auto;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
@@ -573,8 +815,8 @@
             animation: slideUp 0.25s ease;
         }
         .modal h3 {
-            margin-bottom: 16px;
-            font-size: 18px;
+            margin-bottom: 14px;
+            font-size: 17px;
             font-weight: 600;
             color: var(--text);
             display: flex;
@@ -582,20 +824,20 @@
             gap: 8px;
         }
         .modal .form-group {
-            margin-bottom: 14px;
+            margin-bottom: 12px;
         }
         .modal .form-group label {
             display: block;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 500;
-            margin-bottom: 4px;
+            margin-bottom: 3px;
             color: var(--text-secondary);
         }
         .modal .form-group input,
         .modal .form-group select,
         .modal .form-group textarea {
             width: 100%;
-            padding: 9px 12px;
+            padding: 8px 10px;
             border: 1px solid var(--border);
             border-radius: var(--radius-sm);
             font-size: 13px;
@@ -612,14 +854,15 @@
             box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.15);
         }
         .modal .form-group textarea {
-            min-height: 80px;
+            min-height: 70px;
             resize: vertical;
         }
         .modal .modal-actions {
             display: flex;
             gap: 8px;
             justify-content: flex-end;
-            margin-top: 16px;
+            margin-top: 14px;
+            flex-wrap: wrap;
         }
         @keyframes fadeIn {
             from { opacity: 0; }
@@ -630,18 +873,19 @@
             to { transform: translateY(0); opacity: 1; }
         }
 
-        /* Toast 通知 */
+        /* Toast */
         .toast-container {
             position: fixed;
-            bottom: 24px;
-            right: 24px;
+            bottom: calc(24px + var(--safe-bottom));
+            right: 16px;
             z-index: 2000;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 6px;
+            max-width: 90vw;
         }
         .toast {
-            padding: 12px 18px;
+            padding: 10px 16px;
             border-radius: var(--radius);
             font-size: 13px;
             font-weight: 500;
@@ -649,8 +893,9 @@
             animation: slideIn 0.3s ease;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             letter-spacing: 0.2px;
+            word-break: break-word;
         }
         .toast.success { background: #27ae60; color: #fff; }
         .toast.error { background: #e74c3c; color: #fff; }
@@ -660,7 +905,7 @@
             to { transform: translateX(0); opacity: 1; }
         }
 
-        /* 拖放上传区域 */
+        /* 拖放 */
         .drop-zone {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -670,7 +915,7 @@
             display: none;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 600;
             color: var(--accent);
             backdrop-filter: blur(4px);
@@ -678,112 +923,79 @@
         }
         .drop-zone.active { display: flex; pointer-events: all; }
 
-        /* 搜索框 */
-        .search-input {
-            padding: 7px 12px;
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            font-size: 13px;
-            font-family: var(--font-sans);
-            background: var(--bg);
-            color: var(--text);
-            outline: none;
-            width: 180px;
-            transition: all 0.2s;
-        }
-        .search-input:focus {
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.15);
-            width: 220px;
-        }
-
-        /* 响应式 */
-        @media (max-width: 768px) {
-            .sidebar { width: 200px; min-width: 150px; }
-            .preview-pane { padding: 12px 14px; }
-            .editor-content { flex-direction: column; }
-            .editor-pane { border-right: none; border-bottom: 1px solid var(--border); flex: none; height: 50%; }
-            .preview-pane { flex: 1; }
-            .toolbar { padding: 6px 8px; gap: 4px; }
-            .btn { padding: 5px 8px; font-size: 12px; }
-            .btn .btn-text { display: none; }
-            .search-input { width: 100px; font-size: 12px; }
-            .search-input:focus { width: 130px; }
-        }
-
-        /* 空状态 */
-        .empty-state {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 40px 20px;
-            color: var(--text-light);
-            text-align: center;
-            gap: 8px;
-        }
-        .empty-state .icon { font-size: 48px; margin-bottom: 8px; opacity: 0.6; }
-        .empty-state .text { font-size: 14px; font-weight: 500; }
-        .empty-state .sub { font-size: 12px; opacity: 0.7; }
-
-        /* 加载指示器 */
-        .loading-spinner {
-            display: inline-block;
-            width: 16px; height: 16px;
-            border: 2px solid var(--border);
-            border-top-color: var(--accent);
-            border-radius: 50%;
-            animation: spin 0.7s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* 状态栏 */
-        .status-bar {
-            padding: 4px 16px;
-            font-size: 11px;
-            color: var(--text-light);
-            border-top: 1px solid var(--border);
-            background: var(--bg-toolbar);
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            flex-shrink: 0;
-            transition: background var(--transition);
+        /* 树节点 */
+        .tree-node {
             user-select: none;
         }
-        .status-bar .dot {
-            width: 7px; height: 7px;
-            border-radius: 50%;
-            background: var(--success);
-            display: inline-block;
-            animation: pulse 2s infinite;
+        .tree-node .node-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 5px 6px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            font-size: 13px;
+            position: relative;
         }
-        @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
-
-        /* 侧边栏收起动画 */
-        .sidebar {
-            transition: width 0.25s ease, min-width 0.25s ease, max-width 0.25s ease;
+        .tree-node .node-row:hover {
+            background: var(--accent-light);
+        }
+        .tree-node .node-row.active {
+            background: var(--accent);
+            color: #fff;
+        }
+        .tree-node .node-row.active .node-icon {
+            color: #fff;
+        }
+        .tree-node .node-icon {
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+        .tree-node .node-name {
+            flex: 1;
             overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 400;
         }
-        .sidebar.collapsed {
-            width: 0 !important;
-            min-width: 0 !important;
-            max-width: 0 !important;
-            border-right: none;
+        .tree-node .node-badge {
+            font-size: 9px;
+            padding: 1px 5px;
+            border-radius: 10px;
+            background: var(--border);
+            color: var(--text-secondary);
+            flex-shrink: 0;
+            font-weight: 600;
         }
-
-        /* 工具栏按钮紧凑排列 */
-        .toolbar .btn { margin: 2px 0; }
-
-        /* 窄屏适配优化 */
-        @media (max-width: 768px) {
-            .editor-pane { min-height: 200px; }
-            .preview-pane { min-height: 200px; }
-            .toolbar { padding: 4px; }
-            .btn .btn-text { display: none; }
+        .tree-node .node-children {
+            margin-left: 14px;
+            border-left: 1px solid var(--border);
+            padding-left: 4px;
         }
-
-        /* 多选高亮 */
+        .tree-node .node-children.collapsed {
+            display: none;
+        }
+        .tree-node .toggle-arrow {
+            font-size: 8px;
+            transition: transform 0.2s ease;
+            flex-shrink: 0;
+            color: var(--text-light);
+            width: 12px;
+            text-align: center;
+        }
+        .tree-node .toggle-arrow.expanded {
+            transform: rotate(90deg);
+        }
+        .tree-node .toggle-arrow.leaf {
+            visibility: hidden;
+        }
         .tree-node .node-row.selected {
             background: var(--accent-light);
             outline: 1px solid var(--accent);
@@ -793,7 +1005,20 @@
             color: #fff;
         }
 
-        /* 搜索高亮 */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 30px 16px;
+            color: var(--text-light);
+            text-align: center;
+            gap: 6px;
+        }
+        .empty-state .icon { font-size: 36px; margin-bottom: 4px; opacity: 0.6; }
+        .empty-state .text { font-size: 13px; font-weight: 500; }
+        .empty-state .sub { font-size: 11px; opacity: 0.7; }
+
         .cm-search-match {
             background: #ffee00;
             color: #000;
@@ -805,7 +1030,7 @@
             border-radius: 2px;
         }
 
-        /* 自定义查找替换模态框 */
+        /* 查找替换模态框 */
         .find-replace-modal .modal {
             width: 90vw;
             max-width: 600px;
@@ -816,39 +1041,39 @@
         .find-replace-modal .modal-body {
             flex: 1;
             overflow-y: auto;
-            margin: 16px 0;
+            margin: 12px 0;
         }
         .find-replace-modal .fr-input-group {
             display: flex;
             gap: 8px;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
             flex-wrap: wrap;
         }
         .find-replace-modal .fr-input-group input {
             flex: 1;
-            min-width: 120px;
-            padding: 10px 12px;
+            min-width: 100px;
+            padding: 8px 10px;
             border: 1px solid var(--border);
             border-radius: var(--radius-sm);
-            font-size: 14px;
+            font-size: 13px;
             background: var(--bg);
             color: var(--text);
         }
         .find-replace-modal .fr-results {
             border: 1px solid var(--border);
             border-radius: var(--radius-sm);
-            max-height: 300px;
+            max-height: 260px;
             overflow-y: auto;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
         }
         .find-replace-modal .fr-result-item {
-            padding: 10px 14px;
+            padding: 8px 12px;
             cursor: pointer;
             border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 13px;
+            gap: 6px;
+            font-size: 12px;
             transition: background 0.15s;
         }
         .find-replace-modal .fr-result-item:last-child {
@@ -863,8 +1088,9 @@
         }
         .find-replace-modal .fr-result-item .fr-line {
             color: var(--text-light);
-            min-width: 40px;
+            min-width: 32px;
             text-align: right;
+            font-size: 11px;
         }
         .find-replace-modal .fr-result-item .fr-context {
             flex: 1;
@@ -880,41 +1106,29 @@
         }
         .find-replace-modal .fr-actions {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             flex-wrap: wrap;
             justify-content: flex-end;
-            margin-top: 12px;
+            margin-top: 10px;
         }
         .find-replace-modal .fr-info {
-            font-size: 12px;
+            font-size: 11px;
             color: var(--text-light);
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
 
-        /* 移动端适配 */
-        @media (max-width: 768px) {
-            .find-replace-modal .modal {
-                width: 100vw;
-                max-width: 100vw;
-                height: 100vh;
-                max-height: 100vh;
-                border-radius: 0;
-                padding: 16px;
-            }
-            .find-replace-modal .fr-input-group {
-                flex-direction: column;
-            }
-            .find-replace-modal .fr-input-group input {
-                width: 100%;
-            }
-            .find-replace-modal .fr-results {
-                max-height: 45vh;
-            }
-            .find-replace-modal .fr-actions .btn {
-                flex: 1;
-                text-align: center;
-                padding: 12px;
-                font-size: 14px;
+        /* 工具提示按钮组 — 移动端分组折叠 */
+        .toolbar-btn-group-label {
+            display: none;
+        }
+        @media (max-width: 600px) {
+            .toolbar-btn-group-label {
+                display: inline-block;
+                font-size: 10px;
+                font-weight: 600;
+                color: var(--text-light);
+                padding: 0 2px;
+                letter-spacing: 0.3px;
             }
         }
     </style>
@@ -926,8 +1140,9 @@
         <span>📂 松开以导入 Markdown 文件</span>
     </div>
 
-    <!-- 顶部工具栏 -->
+    <!-- ===== 顶部工具栏（分组化） ===== -->
     <div class="toolbar" id="toolbar">
+        <!-- Logo -->
         <div class="logo">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -936,36 +1151,53 @@
                 <line x1="16" y1="17" x2="8" y2="17"/>
                 <polyline points="10 9 9 9 8 9"/>
             </svg>
-            Markdown 管理
+            <span>笔记</span>
         </div>
         <div class="sep"></div>
-        <button class="btn sm" id="btnNewFile" title="新建文件">📄 新建</button>
-        <button class="btn sm" id="btnNewGroup" title="新建分组">📁 分组</button>
-        <button class="btn sm" id="btnUpload" title="上传 Markdown 文件">⬆️ 上传</button>
+
+        <!-- 分组1: 文件操作 -->
+        <div class="toolbar-btn-group">
+            <button class="btn sm" id="btnNewFile" title="新建文件"><i class="fas fa-file btn-icon"></i><span class="btn-text">新建</span></button>
+            <button class="btn sm" id="btnNewGroup" title="新建分组"><i class="fas fa-folder btn-icon"></i><span class="btn-text">分组</span></button>
+            <button class="btn sm" id="btnUpload" title="上传文件"><i class="fas fa-upload btn-icon"></i><span class="btn-text">上传</span></button>
+            <button class="btn sm" id="btnSave" title="保存 (Ctrl+S)"><i class="fas fa-save btn-icon"></i><span class="btn-text">保存</span></button>
+        </div>
         <div class="sep"></div>
-        <button class="btn sm" id="btnUndo" title="撤销 (Ctrl+Z)">↩️ 撤销</button>
-        <button class="btn sm" id="btnRedo" title="重做 (Ctrl+Y)">↪️ 重做</button>
+
+        <!-- 分组2: 编辑/撤销 -->
+        <div class="toolbar-btn-group">
+            <button class="btn sm" id="btnUndo" title="撤销"><i class="fas fa-undo btn-icon"></i><span class="btn-text">撤销</span></button>
+            <button class="btn sm" id="btnRedo" title="重做"><i class="fas fa-redo btn-icon"></i><span class="btn-text">重做</span></button>
+            <button class="btn sm" id="btnFindReplace" title="查找替换"><i class="fas fa-search btn-icon"></i><span class="btn-text">查找</span></button>
+        </div>
         <div class="sep"></div>
-        <button class="btn sm" id="btnSave" title="保存 (Ctrl+S)">💾 保存</button>
-        <button class="btn sm" id="btnRename" title="重命名">✏️ 重命名</button>
-        <button class="btn sm danger" id="btnDelete" title="删除">🗑️ 删除</button>
+
+        <!-- 分组3: 文件管理 -->
+        <div class="toolbar-btn-group">
+            <button class="btn sm" id="btnRename" title="重命名"><i class="fas fa-pen btn-icon"></i><span class="btn-text">重命名</span></button>
+            <button class="btn sm danger" id="btnDelete" title="删除"><i class="fas fa-trash btn-icon"></i><span class="btn-text">删除</span></button>
+            <button class="btn sm" id="btnExportSelected" title="导出选中"><i class="fas fa-file-export btn-icon"></i><span class="btn-text">导出</span></button>
+            <button class="btn sm" id="btnExportAll" title="全部导出"><i class="fas fa-archive btn-icon"></i><span class="btn-text">全部</span></button>
+        </div>
         <div class="sep"></div>
-        <button class="btn sm" id="btnExportSelected" title="导出选中的文件">📤 导出选中</button>
-        <button class="btn sm" id="btnExportAll" title="打包全部文件为 ZIP">📦 全部导出</button>
+
+        <!-- 分组4: Git -->
+        <div class="toolbar-btn-group">
+            <button class="btn sm" id="btnGitPull" title="拉取"><i class="fas fa-download btn-icon"></i><span class="btn-text">Pull</span></button>
+            <button class="btn sm success" id="btnGitPush" title="推送"><i class="fas fa-upload btn-icon"></i><span class="btn-text">Push</span></button>
+            <button class="btn sm" id="btnGitConfig" title="Git配置"><i class="fas fa-code-branch btn-icon"></i><span class="btn-text">Git</span></button>
+        </div>
         <div class="sep"></div>
-        <button class="btn sm" id="btnGitPull" title="从远程仓库拉取">⬇️ Pull</button>
-        <button class="btn sm success" id="btnGitPush" title="推送到远程仓库">⬆️ Push</button>
-        <button class="btn sm" id="btnGitConfig" title="Git 仓库配置">⚙️ Git</button>
-        <div class="sep"></div>
-        <button class="btn sm" id="btnFindReplace" title="查找替换 (Ctrl+H)">🔍 查找替换</button>
-        <div class="sep"></div>
-        <input type="text" class="search-input" id="searchInput" placeholder="🔍 搜索文件...">
-        <div style="flex:1;"></div>
-        <button class="btn sm" id="btnToggleSidebar" title="收起/展开侧边栏">📚 侧栏</button>
-        <button class="btn sm" id="btnTheme" title="切换主题">🌓 主题</button>
+
+        <!-- 右侧: 搜索 + 主题 + 侧栏 -->
+        <div class="toolbar-right">
+            <input type="text" class="search-input" id="searchInput" placeholder="🔍 搜索...">
+            <button class="btn sm" id="btnToggleSidebar" title="侧栏"><i class="fas fa-bars btn-icon"></i></button>
+            <button class="btn sm" id="btnTheme" title="主题"><i class="fas fa-moon btn-icon" id="themeIcon"></i></button>
+        </div>
     </div>
 
-    <!-- 主内容区域 -->
+    <!-- ===== 主内容 ===== -->
     <div class="main-container">
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
@@ -983,23 +1215,24 @@
 
         <div class="editor-container" id="editorContainer">
             <div class="editor-tabs">
-                <div class="editor-tab active" data-mode="edit">✏️ 编辑</div>
-                <div class="editor-tab" data-mode="preview">👁️ 预览</div>
-                <div class="editor-tab" data-mode="split">📑 分屏</div>
+                <div class="editor-tab active" data-mode="edit"><i class="fas fa-edit"></i> 编辑</div>
+                <div class="editor-tab" data-mode="preview"><i class="fas fa-eye"></i> 预览</div>
+                <div class="editor-tab" data-mode="split"><i class="fas fa-columns"></i> 分屏</div>
             </div>
             <div class="editor-content" id="editorContent">
                 <div class="editor-pane" id="editorPane">
-                    <div class="pane-header">📝 编辑器</div>
+                    <div class="pane-header"><i class="fas fa-pencil-alt"></i> 编辑器</div>
                     <textarea id="codeEditor"></textarea>
                 </div>
                 <div class="editor-pane" id="previewPane" style="display:none;">
-                    <div class="pane-header">📖 预览</div>
+                    <div class="pane-header"><i class="fas fa-book"></i> 预览</div>
                     <div class="preview-pane markdown-body" id="previewContent"></div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- ===== 状态栏 ===== -->
     <div class="status-bar">
         <span><span class="dot"></span> 就绪</span>
         <span id="statusFile">未选择文件</span>
@@ -1011,13 +1244,12 @@
     <div class="toast-container" id="toastContainer"></div>
     <input type="file" id="fileUploadInput" accept=".md,.markdown,.txt" multiple style="display:none;">
 
-    <!-- 引入脚本 -->
+    <!-- ===== 引入脚本 ===== -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/markdown/markdown.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
-    <!-- 搜索插件仍保留，但替换对话框我们将使用自定义 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/searchcursor.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/search.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
@@ -1060,15 +1292,14 @@
                 selectedPaths: new Set(),
                 sidebarCollapsed: localStorage.getItem('md-sidebar-collapsed') === 'true',
                 searchMarkers: [],
-                // 自定义查找替换相关
-                frMatches: [],        // 存储匹配项 {from, to, line, context}
-                frCurrentIndex: -1,   // 当前选中的匹配索引
+                frMatches: [],
+                frCurrentIndex: -1,
                 frSearchTerm: '',
                 frReplaceTerm: '',
-                frModalOverlay: null, // 模态框引用
+                frModalOverlay: null,
             };
 
-            // ==================== Toast 通知 ====================
+            // ==================== Toast ====================
             function showToast(message, type = 'info') {
                 const container = document.getElementById('toastContainer');
                 const toast = document.createElement('div');
@@ -1084,7 +1315,7 @@
                 }, 2500);
             }
 
-            // ==================== 初始化 markdown-it ====================
+            // ==================== markdown-it ====================
             function initMarkdown() {
                 state.md = new markdownit({
                     html: true,
@@ -1115,7 +1346,7 @@
                 return state.md;
             }
 
-            // ==================== 初始化 CodeMirror ====================
+            // ==================== CodeMirror ====================
             function initEditor() {
                 const textarea = document.getElementById('codeEditor');
                 state.editor = CodeMirror.fromTextArea(textarea, {
@@ -1139,7 +1370,6 @@
                         'Cmd-Z': function() { state.editor.undo(); },
                         'Ctrl-Y': function() { state.editor.redo(); },
                         'Cmd-Y': function() { state.editor.redo(); },
-                        // 禁用默认的 Ctrl+F 和 Ctrl+H，改用自定义
                         'Ctrl-F': function() { openFindReplace(); },
                         'Cmd-F': function() { openFindReplace(); },
                         'Ctrl-H': function() { openFindReplace(); },
@@ -1155,6 +1385,7 @@
             }
 
             let previewTimeout = null;
+
             function debouncedPreview() {
                 clearTimeout(previewTimeout);
                 previewTimeout = setTimeout(() => updatePreview(), 300);
@@ -1205,7 +1436,7 @@
                 }
             }
 
-            // ==================== 文件树渲染（支持多选） ====================
+            // ==================== 文件树 ====================
             function renderFileTree() {
                 const treeEl = document.getElementById('fileTree');
                 treeEl.innerHTML = '';
@@ -1336,7 +1567,6 @@
                 renderFileTree();
                 updateStatusBar();
                 showToast(`已打开: ${file.name}`, 'info');
-
                 if (state.searchQuery) {
                     highlightSearchInEditor(state.searchQuery);
                 }
@@ -1920,7 +2150,7 @@
                 }
             }
 
-            // ==================== 导出功能 ====================
+            // ==================== 导出 ====================
             function exportSelectedFiles() {
                 const selectedPaths = Array.from(state.selectedPaths);
                 if (selectedPaths.length === 0) {
@@ -1973,7 +2203,7 @@
                 showToast(`已打包导出 ${paths.length} 个文件`, 'success');
             }
 
-            // ==================== 侧边栏收起/展开 ====================
+            // ==================== 侧边栏 ====================
             function toggleSidebar() {
                 state.sidebarCollapsed = !state.sidebarCollapsed;
                 localStorage.setItem('md-sidebar-collapsed', state.sidebarCollapsed);
@@ -2079,7 +2309,7 @@
                 }
             }
 
-            // ==================== 搜索功能（文件树全局搜索） ====================
+            // ==================== 搜索 ====================
             function handleSearch(query) {
                 state.searchQuery = query.trim().toLowerCase();
                 if (!state.searchQuery) {
@@ -2119,16 +2349,14 @@
                 state.searchMarkers = [];
             }
 
-            // ==================== 自定义查找替换 ====================
+            // ==================== 查找替换 ====================
             function openFindReplace() {
-                // 如果已经打开，则聚焦
                 if (state.frModalOverlay) {
                     state.frModalOverlay.querySelector('#fr-search-input').focus();
                     return;
                 }
                 if (!state.editor) return;
 
-                // 创建模态框
                 const overlay = document.createElement('div');
                 overlay.className = 'modal-overlay find-replace-modal';
                 overlay.innerHTML = `
@@ -2141,11 +2369,11 @@
                         <div class="fr-info" id="fr-info"></div>
                         <div class="fr-results" id="fr-results"></div>
                         <div class="fr-actions">
-                            <button class="btn" id="fr-prev">⬆️ 上一个</button>
-                            <button class="btn" id="fr-next">⬇️ 下一个</button>
-                            <button class="btn primary" id="fr-replace-one">🔄 替换选中</button>
-                            <button class="btn danger" id="fr-replace-all">⚡ 全部替换</button>
-                            <button class="btn" id="fr-close">关闭</button>
+                            <button class="btn" id="fr-prev"><i class="fas fa-arrow-up"></i> 上一个</button>
+                            <button class="btn" id="fr-next"><i class="fas fa-arrow-down"></i> 下一个</button>
+                            <button class="btn primary" id="fr-replace-one"><i class="fas fa-sync"></i> 替换选中</button>
+                            <button class="btn danger" id="fr-replace-all"><i class="fas fa-bolt"></i> 全部替换</button>
+                            <button class="btn" id="fr-close"><i class="fas fa-times"></i> 关闭</button>
                         </div>
                     </div>
                 `;
@@ -2154,35 +2382,21 @@
 
                 const searchInput = overlay.querySelector('#fr-search-input');
                 const replaceInput = overlay.querySelector('#fr-replace-input');
-                const resultsDiv = overlay.querySelector('#fr-results');
-                const infoDiv = overlay.querySelector('#fr-info');
 
-                // 关闭按钮
                 overlay.querySelector('#fr-close').addEventListener('click', closeFindReplace);
                 overlay.addEventListener('click', (e) => {
                     if (e.target === overlay) closeFindReplace();
                 });
 
-                // 查找输入事件
                 searchInput.addEventListener('input', () => {
                     performFindReplaceSearch(searchInput.value, replaceInput.value);
                 });
-                // 替换输入也可以触发重新搜索（因为上下文不变，但替换内容变了没关系）
-                replaceInput.addEventListener('input', () => {
-                    // 不需要重新搜索，只更新替换内容
-                });
 
-                // 上一个/下一个
                 overlay.querySelector('#fr-prev').addEventListener('click', () => navigateMatch(-1));
                 overlay.querySelector('#fr-next').addEventListener('click', () => navigateMatch(1));
-
-                // 替换选中
                 overlay.querySelector('#fr-replace-one').addEventListener('click', () => replaceCurrentMatch());
-
-                // 全部替换
                 overlay.querySelector('#fr-replace-all').addEventListener('click', () => replaceAllMatches());
 
-                // 初始聚焦
                 setTimeout(() => searchInput.focus(), 100);
             }
 
@@ -2218,7 +2432,7 @@
                     state.frMatches.push({
                         from: from,
                         to: to,
-                        line: line + 1, // 1-based for display
+                        line: line + 1,
                         context: context,
                         startOffset: from.ch - start,
                         endOffset: to.ch - start
@@ -2227,7 +2441,6 @@
 
                 if (state.frMatches.length > 0) {
                     state.frCurrentIndex = 0;
-                    // 高亮所有匹配
                     clearSearchHighlights();
                     state.frMatches.forEach(match => {
                         const marker = state.editor.markText(match.from, match.to, { className: 'cm-search-match' });
@@ -2246,19 +2459,16 @@
                 const resultsDiv = state.frModalOverlay.querySelector('#fr-results');
                 const infoDiv = state.frModalOverlay.querySelector('#fr-info');
 
-                // 更新信息
                 if (state.frMatches.length === 0) {
                     infoDiv.textContent = state.frSearchTerm ? '未找到匹配项' : '';
                 } else {
                     infoDiv.textContent = `找到 ${state.frMatches.length} 个匹配项，当前第 ${state.frCurrentIndex + 1} 个`;
                 }
 
-                // 渲染结果列表
                 resultsDiv.innerHTML = '';
                 state.frMatches.forEach((match, index) => {
                     const item = document.createElement('div');
                     item.className = 'fr-result-item' + (index === state.frCurrentIndex ? ' active' : '');
-                    // 高亮匹配部分
                     const before = match.context.substring(0, match.startOffset);
                     const matched = match.context.substring(match.startOffset, match.endOffset);
                     const after = match.context.substring(match.endOffset);
@@ -2297,9 +2507,7 @@
                 if (!match) return;
                 const replaceTerm = state.frModalOverlay.querySelector('#fr-replace-input').value;
                 state.editor.replaceRange(replaceTerm, match.from, match.to);
-                // 替换后需要重新计算匹配位置
                 performFindReplaceSearch(state.frSearchTerm, replaceTerm);
-                // 更新当前文件内容
                 if (state.currentFile) {
                     state.files[state.currentFile].content = state.editor.getValue();
                     state.files[state.currentFile].updatedAt = new Date().toISOString();
@@ -2311,12 +2519,10 @@
             function replaceAllMatches() {
                 if (!state.frModalOverlay || state.frMatches.length === 0) return;
                 const replaceTerm = state.frModalOverlay.querySelector('#fr-replace-input').value;
-                // 从后往前替换，避免位置偏移
                 for (let i = state.frMatches.length - 1; i >= 0; i--) {
                     const match = state.frMatches[i];
                     state.editor.replaceRange(replaceTerm, match.from, match.to);
                 }
-                // 重新搜索并更新UI
                 performFindReplaceSearch(state.frSearchTerm, replaceTerm);
                 if (state.currentFile) {
                     state.files[state.currentFile].content = state.editor.getValue();
@@ -2325,6 +2531,75 @@
                     updateStatusBar();
                 }
                 showToast(`已替换 ${state.frMatches.length} 处`, 'success');
+            }
+
+            // ==================== 主题 ====================
+            function toggleTheme() {
+                state.theme = state.theme === 'light' ? 'dark' : 'light';
+                localStorage.setItem('md-theme', state.theme);
+                applyTheme();
+                const icon = document.getElementById('themeIcon');
+                icon.className = state.theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+
+            function applyTheme() {
+                document.documentElement.setAttribute('data-theme', state.theme);
+                if (state.editor) {
+                    state.editor.setOption('theme', state.theme === 'dark' ? 'material-darker' : 'one-light');
+                }
+                const hljsDark = document.getElementById('hljs-dark');
+                const hljsLight = document.getElementById('hljs-light');
+                if (state.theme === 'dark') {
+                    hljsDark.disabled = false;
+                    hljsLight.disabled = true;
+                } else {
+                    hljsDark.disabled = true;
+                    hljsLight.disabled = false;
+                }
+                const icon = document.getElementById('themeIcon');
+                if (icon) {
+                    icon.className = state.theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+                }
+            }
+
+            // ==================== 上传 ====================
+            function handleUpload(files) {
+                const group = state.currentGroup || '默认';
+                let count = 0;
+                const total = files.length;
+                Array.from(files).forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const content = e.target.result;
+                        const name = file.name || 'uploaded.md';
+                        const cleanName = name.endsWith('.md') || name.endsWith('.markdown') || name.endsWith('.txt') ? name : name + '.md';
+                        const path = `${group}/${cleanName}`;
+                        let finalPath = path;
+                        let counter = 1;
+                        while (state.files[finalPath]) {
+                            const ext = cleanName.includes('.') ? '.' + cleanName.split('.').pop() : '';
+                            const base = cleanName.replace(/\.[^.]+$/, '');
+                            finalPath = `${group}/${base}_${counter}${ext}`;
+                            counter++;
+                        }
+                        if (!state.groups.has(group)) state.groups.add(group);
+                        state.files[finalPath] = {
+                            name: finalPath.split('/').pop(),
+                            group: group,
+                            content: content,
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString(),
+                        };
+                        syncToGitFs(finalPath, content);
+                        count++;
+                        if (count === total) {
+                            renderFileTree();
+                            updateStatusBar();
+                            showToast(`成功上传 ${count} 个文件`, 'success');
+                        }
+                    };
+                    reader.readAsText(file);
+                });
             }
 
             // ==================== 初始化 ====================
@@ -2366,7 +2641,7 @@
                 }, 5000);
 
                 bindEvents();
-                showToast('欢迎使用 Markdown 管理系统（增强版）！', 'info');
+                showToast('欢迎使用 Markdown 笔记 v1.3', 'info');
             }
 
             function bindEvents() {
@@ -2400,8 +2675,6 @@
                 document.getElementById('btnExportSelected').addEventListener('click', exportSelectedFiles);
                 document.getElementById('btnExportAll').addEventListener('click', exportAllFiles);
                 document.getElementById('btnToggleSidebar').addEventListener('click', toggleSidebar);
-
-                // 查找替换按钮改为打开自定义面板
                 document.getElementById('btnFindReplace').addEventListener('click', openFindReplace);
 
                 document.getElementById('fileUploadInput').addEventListener('change', (e) => {
@@ -2417,7 +2690,7 @@
                     tab.addEventListener('click', () => setViewMode(tab.dataset.mode));
                 });
 
-                // 拖放上传
+                // 拖放
                 const dropZone = document.getElementById('dropZone');
                 let dragCounter = 0;
                 document.addEventListener('dragenter', (e) => { e.preventDefault(); dragCounter++; if (dragCounter === 1) dropZone.classList.add('active'); });
@@ -2430,10 +2703,11 @@
                     if (e.dataTransfer.files.length) handleUpload(e.dataTransfer.files);
                 });
 
-                // 键盘快捷键
                 document.addEventListener('keydown', (e) => {
-                    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveCurrentFile(); }
-                    if ((e.ctrlKey || e.metaKey) && e.key === 'n') { e.preventDefault(); showNewFileModal(); }
+                    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault();
+                        saveCurrentFile(); }
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'n') { e.preventDefault();
+                        showNewFileModal(); }
                 });
 
                 window.addEventListener('beforeunload', () => {
@@ -2447,67 +2721,6 @@
                 });
 
                 state.editor.on('change', updateStatusBar);
-            }
-
-            function toggleTheme() {
-                state.theme = state.theme === 'light' ? 'dark' : 'light';
-                localStorage.setItem('md-theme', state.theme);
-                applyTheme();
-            }
-
-            function applyTheme() {
-                document.documentElement.setAttribute('data-theme', state.theme);
-                if (state.editor) {
-                    state.editor.setOption('theme', state.theme === 'dark' ? 'material-darker' : 'one-light');
-                }
-                const hljsDark = document.getElementById('hljs-dark');
-                const hljsLight = document.getElementById('hljs-light');
-                if (state.theme === 'dark') {
-                    hljsDark.disabled = false;
-                    hljsLight.disabled = true;
-                } else {
-                    hljsDark.disabled = true;
-                    hljsLight.disabled = false;
-                }
-            }
-
-            function handleUpload(files) {
-                const group = state.currentGroup || '默认';
-                let count = 0;
-                const total = files.length;
-                Array.from(files).forEach(file => {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const content = e.target.result;
-                        const name = file.name || 'uploaded.md';
-                        const cleanName = name.endsWith('.md') || name.endsWith('.markdown') || name.endsWith('.txt') ? name : name + '.md';
-                        const path = `${group}/${cleanName}`;
-                        let finalPath = path;
-                        let counter = 1;
-                        while (state.files[finalPath]) {
-                            const ext = cleanName.includes('.') ? '.' + cleanName.split('.').pop() : '';
-                            const base = cleanName.replace(/\.[^.]+$/, '');
-                            finalPath = `${group}/${base}_${counter}${ext}`;
-                            counter++;
-                        }
-                        if (!state.groups.has(group)) state.groups.add(group);
-                        state.files[finalPath] = {
-                            name: finalPath.split('/').pop(),
-                            group: group,
-                            content: content,
-                            createdAt: new Date().toISOString(),
-                            updatedAt: new Date().toISOString(),
-                        };
-                        syncToGitFs(finalPath, content);
-                        count++;
-                        if (count === total) {
-                            renderFileTree();
-                            updateStatusBar();
-                            showToast(`成功上传 ${count} 个文件`, 'success');
-                        }
-                    };
-                    reader.readAsText(file);
-                });
             }
 
             // 启动

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Markdown 笔记 v1.3</title>
+    <title>Markdown 笔记 v1.4</title>
 
     <!-- CodeMirror 5 CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
@@ -37,6 +37,7 @@
             --accent-light: #e8f0fe;
             --danger: #e74c3c;
             --success: #27ae60;
+            --warning: #f39c12;
             --shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
             --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.06);
             --radius: 8px;
@@ -234,8 +235,20 @@
             cursor: not-allowed;
             pointer-events: none;
         }
+        .btn .spinner {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
 
-        /* 右侧控制区（搜索、主题切换） */
+        /* 右侧控制区 */
         .toolbar-right {
             display: flex;
             align-items: center;
@@ -270,6 +283,31 @@
             .toolbar-right .search-input:focus {
                 width: 110px;
             }
+        }
+
+        /* ===== Git 状态指示器 ===== */
+        .git-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: var(--border);
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+        .git-status.ready {
+            background: rgba(39, 174, 96, 0.15);
+            color: var(--success);
+        }
+        .git-status.error {
+            background: rgba(231, 76, 60, 0.15);
+            color: var(--danger);
+        }
+        .git-status.loading {
+            background: rgba(243, 156, 18, 0.15);
+            color: var(--warning);
         }
 
         /* ===== 主布局 ===== */
@@ -426,14 +464,13 @@
             color: var(--text);
             transition: background var(--transition);
         }
-        
         .CodeMirror,
-.CodeMirror-lines,
-.CodeMirror pre {
-    -webkit-user-select: text;
-    -moz-user-select: text;
-    user-select: text;
-}
+        .CodeMirror-lines,
+        .CodeMirror pre {
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            user-select: text;
+        }
 
         .preview-pane {
             flex: 1;
@@ -492,195 +529,64 @@
             flex-shrink: 0;
         }
         @keyframes pulse {
-            0%,
-            100% {
-                opacity: 1;
-            }
-            50% {
-                opacity: 0.4;
-            }
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
         }
 
-        /* ===== 响应式：移动端 ===== */
+        /* ===== 响应式 ===== */
         @media (max-width: 768px) {
             :root {
                 --toolbar-height: 46px;
                 --status-height: 24px;
             }
-            .toolbar {
-                padding: 4px 6px;
-                gap: 2px;
-                min-height: var(--toolbar-height);
-                align-content: center;
-            }
-            .toolbar .logo {
-                font-size: 13px;
-                margin-right: 2px;
-            }
-            .toolbar .logo svg {
-                width: 16px;
-                height: 16px;
-            }
-            .toolbar .sep {
-                display: none;
-            }
-            .toolbar-right {
-                margin-left: 0;
-                width: auto;
-                flex-shrink: 0;
-            }
-            .btn {
-                padding: 4px 6px;
-                font-size: 11px;
-                border-radius: 4px;
-            }
-            .btn .btn-text {
-                display: none !important;
-            }
-            .btn .btn-icon {
-                font-size: 14px;
-            }
-            .toolbar-btn-group .btn {
-                padding: 5px 6px;
-            }
-            .sidebar {
-                width: 200px;
-                min-width: 140px;
-                max-width: 280px;
-            }
-            .editor-content {
-                flex-direction: column;
-            }
-            .editor-pane {
-                border-right: none;
-                border-bottom: 1px solid var(--border);
-                flex: none;
-                height: 50%;
-            }
-            .editor-pane:last-child {
-                border-bottom: none;
-                flex: 1;
-            }
-            .preview-pane {
-                padding: 12px 14px;
-            }
-            .CodeMirror {
-                font-size: 13px;
-            }
-            .markdown-body {
-                font-size: 14px;
-            }
-            .status-bar {
-                font-size: 9px;
-                padding: 2px 8px;
-                gap: 8px;
-                min-height: var(--status-height);
-            }
-            .sidebar:not(.collapsed) {
-                width: 200px !important;
-                min-width: 140px !important;
-                max-width: 280px !important;
-            }
-            .toolbar-right .search-input {
-                width: 70px;
-                font-size: 11px;
-                padding: 3px 6px;
-            }
-            .toolbar-right .search-input:focus {
-                width: 100px;
-            }
-            .modal {
-                width: 95vw;
-                padding: 16px;
-                max-height: 90vh;
-                border-radius: 10px;
-            }
-            .find-replace-modal .modal {
-                width: 100vw;
-                max-width: 100vw;
-                height: 100vh;
-                max-height: 100vh;
-                border-radius: 0;
-                padding: 12px;
-            }
-            .find-replace-modal .fr-input-group {
-                flex-direction: column;
-            }
-            .find-replace-modal .fr-input-group input {
-                width: 100%;
-            }
-            .find-replace-modal .fr-results {
-                max-height: 35vh;
-            }
-            .find-replace-modal .fr-actions .btn {
-                flex: 1;
-                text-align: center;
-                padding: 10px;
-                font-size: 12px;
-            }
-            .tree-node .node-row {
-                padding: 8px 6px;
-                min-height: 36px;
-            }
-            .tree-node .node-row .node-icon {
-                font-size: 15px;
-            }
-            .tree-node .node-row .node-name {
-                font-size: 13px;
-            }
+            .toolbar { padding: 4px 6px; gap: 2px; min-height: var(--toolbar-height); }
+            .toolbar .logo { font-size: 13px; margin-right: 2px; }
+            .toolbar .logo svg { width: 16px; height: 16px; }
+            .toolbar .sep { display: none; }
+            .toolbar-right { margin-left: 0; width: auto; flex-shrink: 0; }
+            .btn { padding: 4px 6px; font-size: 11px; border-radius: 4px; }
+            .btn .btn-text { display: none !important; }
+            .btn .btn-icon { font-size: 14px; }
+            .toolbar-btn-group .btn { padding: 5px 6px; }
+            .sidebar { width: 200px; min-width: 140px; max-width: 280px; }
+            .editor-content { flex-direction: column; }
+            .editor-pane { border-right: none; border-bottom: 1px solid var(--border); flex: none; height: 50%; }
+            .editor-pane:last-child { border-bottom: none; flex: 1; }
+            .preview-pane { padding: 12px 14px; }
+            .CodeMirror { font-size: 13px; }
+            .markdown-body { font-size: 14px; }
+            .status-bar { font-size: 9px; padding: 2px 8px; gap: 8px; min-height: var(--status-height); }
+            .sidebar:not(.collapsed) { width: 200px !important; min-width: 140px !important; max-width: 280px !important; }
+            .toolbar-right .search-input { width: 70px; font-size: 11px; padding: 3px 6px; }
+            .toolbar-right .search-input:focus { width: 100px; }
+            .modal { width: 95vw; padding: 16px; max-height: 90vh; border-radius: 10px; }
+            .find-replace-modal .modal { width: 100vw; max-width: 100vw; height: 100vh; max-height: 100vh; border-radius: 0; padding: 12px; }
+            .find-replace-modal .fr-input-group { flex-direction: column; }
+            .find-replace-modal .fr-input-group input { width: 100%; }
+            .find-replace-modal .fr-results { max-height: 35vh; }
+            .find-replace-modal .fr-actions .btn { flex: 1; text-align: center; padding: 10px; font-size: 12px; }
+            .tree-node .node-row { padding: 8px 6px; min-height: 36px; }
+            .tree-node .node-row .node-icon { font-size: 15px; }
+            .tree-node .node-row .node-name { font-size: 13px; }
         }
 
         @media (max-width: 480px) {
-            :root {
-                --toolbar-height: 42px;
-            }
-            .toolbar .logo span {
-                display: none;
-            }
-            .toolbar .logo {
-                font-size: 16px;
-            }
-            .btn {
-                padding: 3px 5px;
-                font-size: 10px;
-            }
-            .btn .btn-icon {
-                font-size: 13px;
-            }
-            .sidebar {
-                width: 160px;
-                min-width: 120px;
-                max-width: 220px;
-            }
-            .sidebar:not(.collapsed) {
-                width: 160px !important;
-                min-width: 120px !important;
-            }
-            .CodeMirror {
-                font-size: 12px;
-            }
-            .preview-pane {
-                padding: 10px 12px;
-            }
-            .markdown-body {
-                font-size: 13px;
-            }
-            .status-bar {
-                font-size: 8px;
-                padding: 1px 6px;
-                gap: 6px;
-            }
-            .toolbar-right .search-input {
-                width: 55px;
-                font-size: 10px;
-                padding: 2px 4px;
-            }
-            .toolbar-right .search-input:focus {
-                width: 80px;
-            }
+            :root { --toolbar-height: 42px; }
+            .toolbar .logo span { display: none; }
+            .toolbar .logo { font-size: 16px; }
+            .btn { padding: 3px 5px; font-size: 10px; }
+            .btn .btn-icon { font-size: 13px; }
+            .sidebar { width: 160px; min-width: 120px; max-width: 220px; }
+            .sidebar:not(.collapsed) { width: 160px !important; min-width: 120px !important; }
+            .CodeMirror { font-size: 12px; }
+            .preview-pane { padding: 10px 12px; }
+            .markdown-body { font-size: 13px; }
+            .status-bar { font-size: 8px; padding: 1px 6px; gap: 6px; }
+            .toolbar-right .search-input { width: 55px; font-size: 10px; padding: 2px 4px; }
+            .toolbar-right .search-input:focus { width: 80px; }
         }
 
-        /* ===== 标记样式 ===== */
+        /* ===== Markdown 样式 ===== */
         .markdown-body {
             font-size: 15px;
             line-height: 1.8;
@@ -688,50 +594,22 @@
             margin: 0 auto;
             color: var(--text);
         }
-        .markdown-body h1,
-        .markdown-body h2,
-        .markdown-body h3,
-        .markdown-body h4,
-        .markdown-body h5,
-        .markdown-body h6 {
+        .markdown-body h1, .markdown-body h2, .markdown-body h3,
+        .markdown-body h4, .markdown-body h5, .markdown-body h6 {
             margin-top: 20px;
             margin-bottom: 10px;
             font-weight: 700;
             line-height: 1.4;
             color: var(--text);
         }
-        .markdown-body h1 {
-            font-size: 1.8em;
-            border-bottom: 2px solid var(--border);
-            padding-bottom: 6px;
-        }
-        .markdown-body h2 {
-            font-size: 1.4em;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 4px;
-        }
-        .markdown-body h3 {
-            font-size: 1.2em;
-        }
-        .markdown-body p {
-            margin: 8px 0;
-        }
-        .markdown-body a {
-            color: var(--accent);
-            text-decoration: none;
-            border-bottom: 1px dashed var(--accent);
-        }
-        .markdown-body a:hover {
-            border-bottom-style: solid;
-        }
-        .markdown-body ul,
-        .markdown-body ol {
-            padding-left: 22px;
-            margin: 8px 0;
-        }
-        .markdown-body li {
-            margin: 3px 0;
-        }
+        .markdown-body h1 { font-size: 1.8em; border-bottom: 2px solid var(--border); padding-bottom: 6px; }
+        .markdown-body h2 { font-size: 1.4em; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+        .markdown-body h3 { font-size: 1.2em; }
+        .markdown-body p { margin: 8px 0; }
+        .markdown-body a { color: var(--accent); text-decoration: none; border-bottom: 1px dashed var(--accent); }
+        .markdown-body a:hover { border-bottom-style: solid; }
+        .markdown-body ul, .markdown-body ol { padding-left: 22px; margin: 8px 0; }
+        .markdown-body li { margin: 3px 0; }
         .markdown-body blockquote {
             border-left: 4px solid var(--accent);
             padding: 6px 14px;
@@ -746,26 +624,14 @@
             margin: 10px 0;
             font-size: 13px;
         }
-        .markdown-body th,
-        .markdown-body td {
+        .markdown-body th, .markdown-body td {
             border: 1px solid var(--border);
             padding: 6px 10px;
             text-align: left;
         }
-        .markdown-body th {
-            background: var(--accent-light);
-            font-weight: 600;
-        }
-        .markdown-body hr {
-            border: none;
-            border-top: 2px solid var(--border);
-            margin: 16px 0;
-        }
-        .markdown-body img {
-            max-width: 100%;
-            border-radius: var(--radius);
-            box-shadow: var(--shadow-sm);
-        }
+        .markdown-body th { background: var(--accent-light); font-weight: 600; }
+        .markdown-body hr { border: none; border-top: 2px solid var(--border); margin: 16px 0; }
+        .markdown-body img { max-width: 100%; border-radius: var(--radius); box-shadow: var(--shadow-sm); }
         .markdown-body code {
             font-family: var(--font-mono);
             background: var(--code-bg);
@@ -798,9 +664,9 @@
             right: 6px;
             padding: 3px 8px;
             font-size: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255,255,255,0.2);
             border-radius: 4px;
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255,255,255,0.1);
             color: #ccc;
             cursor: pointer;
             transition: all 0.2s;
@@ -812,25 +678,14 @@
             align-items: center;
             gap: 3px;
         }
-        .copy-btn:hover {
-            background: rgba(255, 255, 255, 0.2);
-            color: #fff;
-            border-color: rgba(255, 255, 255, 0.4);
-        }
-        .copy-btn.copied {
-            background: rgba(39, 174, 96, 0.3);
-            border-color: rgba(39, 174, 96, 0.5);
-            color: #a3e4c1;
-        }
+        .copy-btn:hover { background: rgba(255,255,255,0.2); color: #fff; border-color: rgba(255,255,255,0.4); }
+        .copy-btn.copied { background: rgba(39,174,96,0.3); border-color: rgba(39,174,96,0.5); color: #a3e4c1; }
 
         /* 模态框 */
         .modal-overlay {
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
             z-index: 1000;
             display: flex;
             align-items: center;
@@ -847,32 +702,14 @@
             max-width: 100%;
             max-height: 85vh;
             overflow-y: auto;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             border: 1px solid var(--border);
             animation: slideUp 0.25s ease;
         }
-        .modal h3 {
-            margin-bottom: 14px;
-            font-size: 17px;
-            font-weight: 600;
-            color: var(--text);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .modal .form-group {
-            margin-bottom: 12px;
-        }
-        .modal .form-group label {
-            display: block;
-            font-size: 12px;
-            font-weight: 500;
-            margin-bottom: 3px;
-            color: var(--text-secondary);
-        }
-        .modal .form-group input,
-        .modal .form-group select,
-        .modal .form-group textarea {
+        .modal h3 { margin-bottom: 14px; font-size: 17px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; }
+        .modal .form-group { margin-bottom: 12px; }
+        .modal .form-group label { display: block; font-size: 12px; font-weight: 500; margin-bottom: 3px; color: var(--text-secondary); }
+        .modal .form-group input, .modal .form-group select, .modal .form-group textarea {
             width: 100%;
             padding: 8px 10px;
             border: 1px solid var(--border);
@@ -884,41 +721,14 @@
             transition: border-color 0.2s;
             outline: none;
         }
-        .modal .form-group input:focus,
-        .modal .form-group select:focus,
-        .modal .form-group textarea:focus {
+        .modal .form-group input:focus, .modal .form-group select:focus, .modal .form-group textarea:focus {
             border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.15);
+            box-shadow: 0 0 0 3px rgba(74,144,217,0.15);
         }
-        .modal .form-group textarea {
-            min-height: 70px;
-            resize: vertical;
-        }
-        .modal .modal-actions {
-            display: flex;
-            gap: 8px;
-            justify-content: flex-end;
-            margin-top: 14px;
-            flex-wrap: wrap;
-        }
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-            to {
-                opacity: 1;
-            }
-        }
-        @keyframes slideUp {
-            from {
-                transform: translateY(20px);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
+        .modal .form-group textarea { min-height: 70px; resize: vertical; }
+        .modal .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; flex-wrap: wrap; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
         /* Toast */
         .toast-container {
@@ -936,7 +746,7 @@
             border-radius: var(--radius);
             font-size: 13px;
             font-weight: 500;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
             animation: slideIn 0.3s ease;
             display: flex;
             align-items: center;
@@ -944,37 +754,17 @@
             letter-spacing: 0.2px;
             word-break: break-word;
         }
-        .toast.success {
-            background: #27ae60;
-            color: #fff;
-        }
-        .toast.error {
-            background: #e74c3c;
-            color: #fff;
-        }
-        .toast.info {
-            background: #4a90d9;
-            color: #fff;
-        }
-        @keyframes slideIn {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
+        .toast.success { background: #27ae60; color: #fff; }
+        .toast.error { background: #e74c3c; color: #fff; }
+        .toast.info { background: #4a90d9; color: #fff; }
+        .toast.warning { background: #f39c12; color: #fff; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
         /* 拖放 */
         .drop-zone {
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(74, 144, 217, 0.15);
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(74,144,217,0.15);
             border: 3px dashed var(--accent);
             z-index: 3000;
             display: none;
@@ -986,15 +776,10 @@
             backdrop-filter: blur(4px);
             pointer-events: none;
         }
-        .drop-zone.active {
-            display: flex;
-            pointer-events: all;
-        }
+        .drop-zone.active { display: flex; pointer-events: all; }
 
         /* 树节点 */
-        .tree-node {
-            user-select: none;
-        }
+        .tree-node { user-select: none; }
         .tree-node .node-row {
             display: flex;
             align-items: center;
@@ -1006,16 +791,9 @@
             font-size: 13px;
             position: relative;
         }
-        .tree-node .node-row:hover {
-            background: var(--accent-light);
-        }
-        .tree-node .node-row.active {
-            background: var(--accent);
-            color: #fff;
-        }
-        .tree-node .node-row.active .node-icon {
-            color: #fff;
-        }
+        .tree-node .node-row:hover { background: var(--accent-light); }
+        .tree-node .node-row.active { background: var(--accent); color: #fff; }
+        .tree-node .node-row.active .node-icon { color: #fff; }
         .tree-node .node-icon {
             width: 16px;
             height: 16px;
@@ -1026,13 +804,7 @@
             color: var(--text-secondary);
             font-size: 13px;
         }
-        .tree-node .node-name {
-            flex: 1;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            font-weight: 400;
-        }
+        .tree-node .node-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; }
         .tree-node .node-badge {
             font-size: 9px;
             padding: 1px 5px;
@@ -1042,14 +814,8 @@
             flex-shrink: 0;
             font-weight: 600;
         }
-        .tree-node .node-children {
-            margin-left: 14px;
-            border-left: 1px solid var(--border);
-            padding-left: 4px;
-        }
-        .tree-node .node-children.collapsed {
-            display: none;
-        }
+        .tree-node .node-children { margin-left: 14px; border-left: 1px solid var(--border); padding-left: 4px; }
+        .tree-node .node-children.collapsed { display: none; }
         .tree-node .toggle-arrow {
             font-size: 8px;
             transition: transform 0.2s ease;
@@ -1058,20 +824,10 @@
             width: 12px;
             text-align: center;
         }
-        .tree-node .toggle-arrow.expanded {
-            transform: rotate(90deg);
-        }
-        .tree-node .toggle-arrow.leaf {
-            visibility: hidden;
-        }
-        .tree-node .node-row.selected {
-            background: var(--accent-light);
-            outline: 1px solid var(--accent);
-        }
-        .tree-node .node-row.selected.active {
-            background: var(--accent);
-            color: #fff;
-        }
+        .tree-node .toggle-arrow.expanded { transform: rotate(90deg); }
+        .tree-node .toggle-arrow.leaf { visibility: hidden; }
+        .tree-node .node-row.selected { background: var(--accent-light); outline: 1px solid var(--accent); }
+        .tree-node .node-row.selected.active { background: var(--accent); color: #fff; }
 
         .empty-state {
             display: flex;
@@ -1083,132 +839,28 @@
             text-align: center;
             gap: 6px;
         }
-        .empty-state .icon {
-            font-size: 36px;
-            margin-bottom: 4px;
-            opacity: 0.6;
-        }
-        .empty-state .text {
-            font-size: 13px;
-            font-weight: 500;
-        }
-        .empty-state .sub {
-            font-size: 11px;
-            opacity: 0.7;
-        }
+        .empty-state .icon { font-size: 36px; margin-bottom: 4px; opacity: 0.6; }
+        .empty-state .text { font-size: 13px; font-weight: 500; }
+        .empty-state .sub { font-size: 11px; opacity: 0.7; }
 
-        .cm-search-match {
-            background: #ffee00;
-            color: #000;
-            border-radius: 2px;
-        }
-        .cm-search-match-selected {
-            background: #ff9632;
-            color: #000;
-            border-radius: 2px;
-        }
+        .cm-search-match { background: #ffee00; color: #000; border-radius: 2px; }
+        .cm-search-match-selected { background: #ff9632; color: #000; border-radius: 2px; }
 
-        /* 查找替换模态框 */
-        .find-replace-modal .modal {
-            width: 90vw;
-            max-width: 600px;
-            display: flex;
-            flex-direction: column;
-            max-height: 80vh;
-        }
-        .find-replace-modal .modal-body {
-            flex: 1;
-            overflow-y: auto;
-            margin: 12px 0;
-        }
-        .find-replace-modal .fr-input-group {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 10px;
-            flex-wrap: wrap;
-        }
-        .find-replace-modal .fr-input-group input {
-            flex: 1;
-            min-width: 100px;
-            padding: 8px 10px;
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            font-size: 13px;
-            background: var(--bg);
-            color: var(--text);
-        }
-        .find-replace-modal .fr-results {
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            max-height: 260px;
-            overflow-y: auto;
-            margin-bottom: 10px;
-        }
-        .find-replace-modal .fr-result-item {
-            padding: 8px 12px;
-            cursor: pointer;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
-            transition: background 0.15s;
-        }
-        .find-replace-modal .fr-result-item:last-child {
-            border-bottom: none;
-        }
-        .find-replace-modal .fr-result-item:hover {
-            background: var(--accent-light);
-        }
-        .find-replace-modal .fr-result-item.active {
-            background: var(--accent-light);
-            outline: 1px solid var(--accent);
-        }
-        .find-replace-modal .fr-result-item .fr-line {
-            color: var(--text-light);
-            min-width: 32px;
-            text-align: right;
-            font-size: 11px;
-        }
-        .find-replace-modal .fr-result-item .fr-context {
-            flex: 1;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .find-replace-modal .fr-result-item .fr-context mark {
-            background: #ffeb3b;
-            color: #000;
-            padding: 0 2px;
-            border-radius: 2px;
-        }
-        .find-replace-modal .fr-actions {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-            margin-top: 10px;
-        }
-        .find-replace-modal .fr-info {
-            font-size: 11px;
-            color: var(--text-light);
-            margin-bottom: 6px;
-        }
-
-        /* 工具提示按钮组 — 移动端分组折叠 */
-        .toolbar-btn-group-label {
-            display: none;
-        }
-        @media (max-width: 600px) {
-            .toolbar-btn-group-label {
-                display: inline-block;
-                font-size: 10px;
-                font-weight: 600;
-                color: var(--text-light);
-                padding: 0 2px;
-                letter-spacing: 0.3px;
-            }
-        }
+        /* 查找替换 */
+        .find-replace-modal .modal { width: 90vw; max-width: 600px; display: flex; flex-direction: column; max-height: 80vh; }
+        .find-replace-modal .modal-body { flex: 1; overflow-y: auto; margin: 12px 0; }
+        .find-replace-modal .fr-input-group { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+        .find-replace-modal .fr-input-group input { flex: 1; min-width: 100px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; background: var(--bg); color: var(--text); }
+        .find-replace-modal .fr-results { border: 1px solid var(--border); border-radius: var(--radius-sm); max-height: 260px; overflow-y: auto; margin-bottom: 10px; }
+        .find-replace-modal .fr-result-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 6px; font-size: 12px; transition: background 0.15s; }
+        .find-replace-modal .fr-result-item:last-child { border-bottom: none; }
+        .find-replace-modal .fr-result-item:hover { background: var(--accent-light); }
+        .find-replace-modal .fr-result-item.active { background: var(--accent-light); outline: 1px solid var(--accent); }
+        .find-replace-modal .fr-result-item .fr-line { color: var(--text-light); min-width: 32px; text-align: right; font-size: 11px; }
+        .find-replace-modal .fr-result-item .fr-context { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .find-replace-modal .fr-result-item .fr-context mark { background: #ffeb3b; color: #000; padding: 0 2px; border-radius: 2px; }
+        .find-replace-modal .fr-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; margin-top: 10px; }
+        .find-replace-modal .fr-info { font-size: 11px; color: var(--text-light); margin-bottom: 6px; }
     </style>
 </head>
 <body>
@@ -1220,7 +872,6 @@
 
     <!-- ===== 顶部工具栏 ===== -->
     <div class="toolbar" id="toolbar">
-        <!-- Logo -->
         <div class="logo">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -1233,7 +884,6 @@
         </div>
         <div class="sep"></div>
 
-        <!-- 分组1: 文件操作 -->
         <div class="toolbar-btn-group">
             <button class="btn sm" id="btnNewFile" title="新建文件"><i class="fas fa-file btn-icon"></i><span class="btn-text">新建</span></button>
             <button class="btn sm" id="btnNewGroup" title="新建分组"><i class="fas fa-folder btn-icon"></i><span class="btn-text">分组</span></button>
@@ -1242,7 +892,6 @@
         </div>
         <div class="sep"></div>
 
-        <!-- 分组2: 编辑/撤销 -->
         <div class="toolbar-btn-group">
             <button class="btn sm" id="btnUndo" title="撤销"><i class="fas fa-undo btn-icon"></i><span class="btn-text">撤销</span></button>
             <button class="btn sm" id="btnRedo" title="重做"><i class="fas fa-redo btn-icon"></i><span class="btn-text">重做</span></button>
@@ -1250,7 +899,6 @@
         </div>
         <div class="sep"></div>
 
-        <!-- 分组3: 文件管理 -->
         <div class="toolbar-btn-group">
             <button class="btn sm" id="btnRename" title="重命名"><i class="fas fa-pen btn-icon"></i><span class="btn-text">重命名</span></button>
             <button class="btn sm danger" id="btnDelete" title="删除"><i class="fas fa-trash btn-icon"></i><span class="btn-text">删除</span></button>
@@ -1259,7 +907,6 @@
         </div>
         <div class="sep"></div>
 
-        <!-- 分组4: Git -->
         <div class="toolbar-btn-group">
             <button class="btn sm" id="btnGitPull" title="拉取"><i class="fas fa-download btn-icon"></i><span class="btn-text">Pull</span></button>
             <button class="btn sm success" id="btnGitPush" title="推送"><i class="fas fa-upload btn-icon"></i><span class="btn-text">Push</span></button>
@@ -1267,7 +914,6 @@
         </div>
         <div class="sep"></div>
 
-        <!-- 右侧: 搜索 + 主题 + 侧栏 -->
         <div class="toolbar-right">
             <input type="text" class="search-input" id="searchInput" placeholder="🔍 搜索...">
             <button class="btn sm" id="btnToggleSidebar" title="侧栏"><i class="fas fa-bars btn-icon"></i></button>
@@ -1315,7 +961,7 @@
         <span><span class="dot"></span> 就绪</span>
         <span id="statusFile">未选择文件</span>
         <span id="statusChars">0 字符</span>
-        <span id="statusGit">Git: 未配置</span>
+        <span id="statusGit"><span class="git-status loading">⏳ Git: 加载中...</span></span>
         <span id="statusSearch"></span>
     </div>
 
@@ -1395,6 +1041,9 @@
                 frSearchTerm: '',
                 frReplaceTerm: '',
                 frModalOverlay: null,
+                gitInitializing: false,
+                gitInitRetries: 0,
+                maxGitRetries: 3,
             };
 
             // ==================== Toast ====================
@@ -1402,7 +1051,7 @@
                 const container = document.getElementById('toastContainer');
                 const toast = document.createElement('div');
                 toast.className = `toast ${type}`;
-                const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+                const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
                 toast.innerHTML = `${icons[type] || 'ℹ️'} ${message}`;
                 container.appendChild(toast);
                 setTimeout(() => {
@@ -1410,7 +1059,7 @@
                     toast.style.transform = 'translateX(100px)';
                     toast.style.transition = 'all 0.3s ease';
                     setTimeout(() => toast.remove(), 300);
-                }, 2500);
+                }, 3000);
             }
 
             // ==================== markdown-it ====================
@@ -1445,22 +1094,21 @@
             }
 
             // ==================== CodeMirror ====================
-function initEditor() {
-    const textarea = document.getElementById('codeEditor');
-    state.editor = CodeMirror.fromTextArea(textarea, {
-        mode: 'markdown',
-        theme: state.theme === 'dark' ? 'material-darker' : 'one-light',
-        lineNumbers: true,
-        lineWrapping: true,
-        autoCloseBrackets: true,
-        matchBrackets: true,
-        styleActiveLine: true,
-        tabSize: 2,
-        indentUnit: 2,
-        inputStyle: 'textarea',  // 改这里：从 'contenteditable' 改为 'textarea'
-        spellcheck: false,
-        extraKeys: {
-    
+            function initEditor() {
+                const textarea = document.getElementById('codeEditor');
+                state.editor = CodeMirror.fromTextArea(textarea, {
+                    mode: 'markdown',
+                    theme: state.theme === 'dark' ? 'material-darker' : 'one-light',
+                    lineNumbers: true,
+                    lineWrapping: true,
+                    autoCloseBrackets: true,
+                    matchBrackets: true,
+                    styleActiveLine: true,
+                    tabSize: 2,
+                    indentUnit: 2,
+                    inputStyle: 'textarea',
+                    spellcheck: false,
+                    extraKeys: {
                         'Ctrl-S': function() { saveCurrentFile(); },
                         'Cmd-S': function() { saveCurrentFile(); },
                         'Ctrl-B': function() { toggleBold(); },
@@ -2014,27 +1662,69 @@ function initEditor() {
                 });
             }
 
-            // ==================== Git 文件系统 ====================
+            // ==================== Git 文件系统（修复版） ====================
             async function initGitFs() {
+                if (state.gitInitializing) return;
+                state.gitInitializing = true;
+                updateGitStatus('loading', '⏳ 加载中...');
+
                 try {
-                    const { default: LightningFS } = await import(
-                        'https://esm.sh/@isomorphic-git/lightning-fs@1.3.0');
-                    state.gitFs = new LightningFS('markdown-fs', { wipe: false });
-                    state.gitModule = await import('https://esm.sh/isomorphic-git@1.25.10');
+                    // 使用 esm.sh 的稳定版本，添加 ?bundle 参数减少请求
+                    const fsModule = await import('https://esm.sh/@isomorphic-git/lightning-fs@4.6.0?bundle');
+                    const gitModule = await import('https://esm.sh/isomorphic-git@1.25.10?bundle');
+                    
+                    state.gitFs = new fsModule.default('markdown-fs', { 
+                        wipe: false,
+                        // 使用 IndexedDB 持久化
+                        store: 'markdown-fs-store'
+                    });
+                    state.gitModule = gitModule;
                     state.fsReady = true;
+
+                    // 创建仓库目录
                     try {
                         await state.gitFs.promises.mkdir('/repo', { recursive: true });
-                    } catch (e) {}
-                    updateStatusBar();
+                    } catch (e) {
+                        // 目录可能已存在
+                    }
+
+                    // 尝试从 Git 仓库恢复文件
+                    await reloadFromGitFs();
+                    
+                    updateGitStatus('ready', '✅ Git 就绪');
                     showToast('Git 文件系统已就绪', 'success');
+                    state.gitInitRetries = 0;
                     return true;
                 } catch (e) {
                     console.error('Git FS 初始化失败:', e);
                     state.fsReady = false;
-                    updateStatusBar();
+                    state.gitModule = null;
+                    state.gitFs = null;
+                    updateGitStatus('error', '❌ Git 未就绪');
+                    
+                    // 重试
+                    if (state.gitInitRetries < state.maxGitRetries) {
+                        state.gitInitRetries++;
+                        showToast(`Git 初始化失败 (${state.gitInitRetries}/${state.maxGitRetries})，正在重试...`, 'warning');
+                        await new Promise(r => setTimeout(r, 2000));
+                        state.gitInitializing = false;
+                        return initGitFs();
+                    }
+                    
                     showToast('Git 文件系统初始化失败，请检查网络后刷新重试', 'error');
                     return false;
+                } finally {
+                    state.gitInitializing = false;
                 }
+            }
+
+            function updateGitStatus(status, label) {
+                const statusEl = document.getElementById('statusGit');
+                if (!statusEl) return;
+                const className = status === 'ready' ? 'git-status ready' : 
+                                 status === 'error' ? 'git-status error' : 
+                                 status === 'loading' ? 'git-status loading' : 'git-status';
+                statusEl.innerHTML = `<span class="${className}">${label}</span>`;
             }
 
             async function syncToGitFs(path, content) {
@@ -2070,7 +1760,7 @@ function initEditor() {
 
             async function gitPull() {
                 if (!state.fsReady || !state.gitModule) {
-                    showToast('Git 文件系统未就绪，请检查网络或刷新页面重试', 'error');
+                    showToast('Git 文件系统未就绪，请刷新页面重试', 'error');
                     return;
                 }
                 if (!state.gitConfig || !state.gitConfig.url) {
@@ -2081,27 +1771,50 @@ function initEditor() {
                 showToast('正在拉取远程仓库...', 'info');
                 try {
                     await syncAllToGitFs();
-                    const result = await state.gitModule.pull({
+                    
+                    // 确保 git 仓库已初始化
+                    const git = state.gitModule;
+                    try {
+                        await git.getConfig({ fs: state.gitFs, dir: '/repo', path: 'user.name' });
+                    } catch (e) {
+                        await git.init({ fs: state.gitFs, dir: '/repo', defaultBranch: config.branch || 'main' });
+                        await git.setConfig({ fs: state.gitFs, dir: '/repo', path: 'user.name', value: config.username || 'markdown-user' });
+                        await git.setConfig({ fs: state.gitFs, dir: '/repo', path: 'user.email', value: (config.username || 'markdown-user') + '@users.noreply.github.com' });
+                    }
+
+                    // 添加远程仓库
+                    try {
+                        const remotes = await git.listRemotes({ fs: state.gitFs, dir: '/repo' });
+                        if (!remotes.some(r => r.url === config.url)) {
+                            await git.addRemote({ fs: state.gitFs, dir: '/repo', remote: 'origin', url: config.url });
+                        }
+                    } catch (e) {
+                        await git.addRemote({ fs: state.gitFs, dir: '/repo', remote: 'origin', url: config.url });
+                    }
+
+                    const result = await git.pull({
                         fs: state.gitFs,
                         http: createHttpClient(config),
                         dir: '/repo',
                         ref: config.branch || 'main',
                         singleBranch: true,
-                        author: { name: config.username || 'user', email: (config.username || 'user') +
-                                '@users.noreply.github.com' },
+                        author: { name: config.username || 'user', email: (config.username || 'user') + '@users.noreply.github.com' },
                     });
-                    showToast(`拉取成功！${result.files && result.files.length ? '更新了 ' + result.files.length + ' 个文件' : '已是最新'}`,
-                        'success');
+                    showToast(`拉取成功！${result.files && result.files.length ? '更新了 ' + result.files.length + ' 个文件' : '已是最新'}`, 'success');
                     await reloadFromGitFs();
                 } catch (e) {
                     console.error('Pull 失败:', e);
-                    showToast('拉取失败: ' + (e.message || '未知错误'), 'error');
+                    if (e.message && e.message.includes('Cannot read properties of undefined')) {
+                        showToast('拉取失败: 网络连接问题，请检查网络后重试', 'error');
+                    } else {
+                        showToast('拉取失败: ' + (e.message || '未知错误'), 'error');
+                    }
                 }
             }
 
             async function gitPush() {
                 if (!state.fsReady || !state.gitModule) {
-                    showToast('Git 文件系统未就绪，请检查网络或刷新页面重试', 'error');
+                    showToast('Git 文件系统未就绪，请刷新页面重试', 'error');
                     return;
                 }
                 if (!state.gitConfig || !state.gitConfig.url) {
@@ -2116,24 +1829,27 @@ function initEditor() {
                 showToast('正在提交并推送...', 'info');
                 try {
                     const git = state.gitModule;
+                    
+                    // 确保 git 仓库已初始化
                     try {
                         await git.getConfig({ fs: state.gitFs, dir: '/repo', path: 'user.name' });
                     } catch (e) {
                         await git.init({ fs: state.gitFs, dir: '/repo', defaultBranch: config.branch || 'main' });
-                        await git.setConfig({ fs: state.gitFs, dir: '/repo', path: 'user.name', value: config
-                                .username || 'markdown-user' });
-                        await git.setConfig({ fs: state.gitFs, dir: '/repo', path: 'user.email', value: (config
-                                .username || 'markdown-user') + '@users.noreply.github.com' });
+                        await git.setConfig({ fs: state.gitFs, dir: '/repo', path: 'user.name', value: config.username || 'markdown-user' });
+                        await git.setConfig({ fs: state.gitFs, dir: '/repo', path: 'user.email', value: (config.username || 'markdown-user') + '@users.noreply.github.com' });
                     }
+
+                    // 添加远程仓库
                     try {
                         const remotes = await git.listRemotes({ fs: state.gitFs, dir: '/repo' });
                         if (!remotes.some(r => r.url === config.url)) {
-                            await git.addRemote({ fs: state.gitFs, dir: '/repo', remote: 'origin', url: config
-                                    .url });
+                            await git.addRemote({ fs: state.gitFs, dir: '/repo', remote: 'origin', url: config.url });
                         }
                     } catch (e) {
                         await git.addRemote({ fs: state.gitFs, dir: '/repo', remote: 'origin', url: config.url });
                     }
+
+                    // 添加所有文件
                     const files = await state.gitFs.promises.readdir('/repo');
                     for (const file of files) {
                         if (file === '.git') continue;
@@ -2143,30 +1859,30 @@ function initEditor() {
                             if (stat.isDirectory()) {
                                 const subFiles = await getAllFiles(filePath);
                                 for (const sf of subFiles) {
-                                    await git.add({ fs: state.gitFs, dir: '/repo', filepath: sf.replace(
-                                            '/repo/', '') });
+                                    await git.add({ fs: state.gitFs, dir: '/repo', filepath: sf.replace('/repo/', '') });
                                 }
                             } else {
                                 await git.add({ fs: state.gitFs, dir: '/repo', filepath: file });
                             }
                         } catch (e) {}
                     }
+
                     const commitMessage = 'Update Markdown files - ' + new Date().toLocaleString();
                     try {
                         await git.commit({
                             fs: state.gitFs,
                             dir: '/repo',
                             message: commitMessage,
-                            author: { name: config.username || 'markdown-user', email: (config.username ||
-                                    'markdown-user') + '@users.noreply.github.com' },
+                            author: { name: config.username || 'markdown-user', email: (config.username || 'markdown-user') + '@users.noreply.github.com' },
                         });
                     } catch (e) {
                         if (e.message && e.message.includes('No changes')) {
                             showToast('没有需要推送的更改', 'info');
-                        } else {
-                            throw e;
+                            return;
                         }
+                        throw e;
                     }
+
                     await git.push({
                         fs: state.gitFs,
                         http: createHttpClient(config),
@@ -2179,7 +1895,11 @@ function initEditor() {
                     showToast('推送成功！', 'success');
                 } catch (e) {
                     console.error('Push 失败:', e);
-                    showToast('推送失败: ' + (e.message || '未知错误'), 'error');
+                    if (e.message && e.message.includes('Cannot read properties of undefined')) {
+                        showToast('推送失败: 网络连接问题，请检查网络后重试', 'error');
+                    } else {
+                        showToast('推送失败: ' + (e.message || '未知错误'), 'error');
+                    }
                 }
             }
 
@@ -2188,13 +1908,32 @@ function initEditor() {
                 if (config.token) {
                     headers['Authorization'] = 'Bearer ' + config.token;
                 }
+                // 针对 GitHub API 的特殊处理
+                const baseUrl = config.url.replace(/\.git$/, '');
                 return {
                     request: async (req) => {
-                        if (!req.url) req.url = config.url;
-                        const res = await fetch(req.url, {
+                        let url = req.url || config.url;
+                        // 如果是 GitHub，转换 API 请求
+                        if (url.includes('github.com') && !url.includes('/api/')) {
+                            // 尝试使用 GitHub API
+                            const parts = url.replace('https://github.com/', '').replace(/\.git$/, '').split('/');
+                            if (parts.length >= 2) {
+                                const owner = parts[0];
+                                const repo = parts[1];
+                                // 使用 GitHub API 获取默认分支的引用
+                                if (req.method === 'GET' && req.url.includes('/info/refs')) {
+                                    url = `https://api.github.com/repos/${owner}/${repo}/git/refs/heads`;
+                                }
+                            }
+                        }
+                        const res = await fetch(url, {
                             method: req.method || 'GET',
-                            headers: { ...req.headers, ...headers, 'Accept': 'application/vnd.github+json',
-                                'X-Git-Agent': 'markdown-manager' },
+                            headers: { 
+                                ...req.headers, 
+                                ...headers, 
+                                'Accept': 'application/vnd.github+json',
+                                'X-Git-Agent': 'markdown-manager' 
+                            },
                             body: req.body,
                         });
                         return res;
@@ -2247,9 +1986,13 @@ function initEditor() {
                             }
                         }
                     }
+                    // 合并文件，保留本地新增的
                     for (const [path, file] of Object.entries(newFiles)) {
-                        if (!state.files[path] || state.files[path].content !== file.content) {
+                        if (!state.files[path]) {
                             state.files[path] = file;
+                        } else if (state.files[path].content !== file.content) {
+                            // 如果有冲突，保留本地版本但提示
+                            showToast(`文件 ${file.name} 有冲突，保留本地版本`, 'warning');
                         }
                     }
                     renderFileTree();
@@ -2258,7 +2001,6 @@ function initEditor() {
                         state.isDirty = false;
                     }
                     updateStatusBar();
-                    showToast('文件已从仓库同步', 'success');
                 } catch (e) {
                     console.warn('重新加载失败:', e);
                 }
@@ -2344,7 +2086,6 @@ function initEditor() {
             function updateStatusBar() {
                 const fileEl = document.getElementById('statusFile');
                 const charsEl = document.getElementById('statusChars');
-                const gitEl = document.getElementById('statusGit');
                 const searchEl = document.getElementById('statusSearch');
                 if (state.currentFile && state.files[state.currentFile]) {
                     const file = state.files[state.currentFile];
@@ -2354,18 +2095,12 @@ function initEditor() {
                 }
                 const content = state.editor ? state.editor.getValue() : '';
                 charsEl.textContent = `${content.length} 字符`;
-                if (!state.fsReady) {
-                    gitEl.textContent = 'Git: 文件系统未就绪';
-                } else if (state.gitConfig && state.gitConfig.url) {
-                    gitEl.textContent = `Git: ${state.gitConfig.url.split('/').pop()}`;
-                } else {
-                    gitEl.textContent = 'Git: 未配置';
-                }
                 if (state.searchQuery) {
                     searchEl.textContent = `🔍 搜索: "${state.searchQuery}"`;
                 } else {
                     searchEl.textContent = '';
                 }
+                // Git 状态由 updateGitStatus 管理
             }
 
             // ==================== 编辑器快捷键 ====================
@@ -2590,8 +2325,7 @@ function initEditor() {
                     const before = match.context.substring(0, match.startOffset);
                     const matched = match.context.substring(match.startOffset, match.endOffset);
                     const after = match.context.substring(match.endOffset);
-                    const highlightedContext = escapeHtml(before) + `<mark>${escapeHtml(matched)}</mark>` +
-                        escapeHtml(after);
+                    const highlightedContext = escapeHtml(before) + `<mark>${escapeHtml(matched)}</mark>` + escapeHtml(after);
                     item.innerHTML = `
                         <span class="fr-line">${match.line}</span>
                         <span class="fr-context">${highlightedContext}</span>
@@ -2691,8 +2425,7 @@ function initEditor() {
                     reader.onload = (e) => {
                         const content = e.target.result;
                         const name = file.name || 'uploaded.md';
-                        const cleanName = name.endsWith('.md') || name.endsWith('.markdown') || name.endsWith(
-                            '.txt') ? name : name + '.md';
+                        const cleanName = name.endsWith('.md') || name.endsWith('.markdown') || name.endsWith('.txt') ? name : name + '.md';
                         const path = `${group}/${cleanName}`;
                         let finalPath = path;
                         let counter = 1;
@@ -2730,8 +2463,8 @@ function initEditor() {
                 applyTheme();
                 setViewMode('split');
                 applySidebarState();
-                await initGitFs();
 
+                // 先加载本地文件
                 const savedFiles = localStorage.getItem('md-files');
                 if (savedFiles) {
                     try {
@@ -2755,20 +2488,25 @@ function initEditor() {
                 renderFileTree();
                 updateStatusBar();
 
+                // 初始化 Git（异步，不阻塞 UI）
+                setTimeout(() => {
+                    initGitFs();
+                }, 500);
+
+                // 自动保存
                 setInterval(() => {
                     localStorage.setItem('md-files', JSON.stringify(state.files));
                     localStorage.setItem('md-groups', JSON.stringify(Array.from(state.groups)));
                 }, 5000);
 
                 bindEvents();
-                showToast('欢迎使用 Markdown 笔记 v1.3', 'info');
+                showToast('欢迎使用 Markdown 笔记 v1.4', 'info');
             }
 
             function bindEvents() {
                 document.getElementById('btnNewFile').addEventListener('click', () => showNewFileModal());
                 document.getElementById('btnNewGroup').addEventListener('click', () => showNewGroupModal());
-                document.getElementById('btnUpload').addEventListener('click', () => document.getElementById(
-                    'fileUploadInput').click());
+                document.getElementById('btnUpload').addEventListener('click', () => document.getElementById('fileUploadInput').click());
                 document.getElementById('btnSave').addEventListener('click', saveCurrentFile);
                 document.getElementById('btnRename').addEventListener('click', () => {
                     if (state.currentFile) showRenameModal(state.currentFile);
@@ -2814,10 +2552,8 @@ function initEditor() {
                 // 拖放
                 const dropZone = document.getElementById('dropZone');
                 let dragCounter = 0;
-                document.addEventListener('dragenter', (e) => { e.preventDefault();
-                    dragCounter++; if (dragCounter === 1) dropZone.classList.add('active'); });
-                document.addEventListener('dragleave', (e) => { e.preventDefault();
-                    dragCounter--; if (dragCounter === 0) dropZone.classList.remove('active'); });
+                document.addEventListener('dragenter', (e) => { e.preventDefault(); dragCounter++; if (dragCounter === 1) dropZone.classList.add('active'); });
+                document.addEventListener('dragleave', (e) => { e.preventDefault(); dragCounter--; if (dragCounter === 0) dropZone.classList.remove('active'); });
                 document.addEventListener('dragover', (e) => e.preventDefault());
                 document.addEventListener('drop', (e) => {
                     e.preventDefault();
@@ -2827,10 +2563,8 @@ function initEditor() {
                 });
 
                 document.addEventListener('keydown', (e) => {
-                    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault();
-                        saveCurrentFile(); }
-                    if ((e.ctrlKey || e.metaKey) && e.key === 'n') { e.preventDefault();
-                        showNewFileModal(); }
+                    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveCurrentFile(); }
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'n') { e.preventDefault(); showNewFileModal(); }
                 });
 
                 window.addEventListener('beforeunload', () => {
